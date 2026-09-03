@@ -1,0 +1,43 @@
+## Build results
+## .NET
+[Dd]ebug/
+[Dd]ebugPrivate/
+[Ll]og/
+[Ll]ogs/
+[Oo]bj/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Uu][Tt][Oo]/
+[Rr]eplica/
+[Bb]in/
+[Mm]esboxes/
+[Bb]uildLog/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.db
+Scattergories.Server/API/scattergories.db
+[Bb]uild\.binlog
+
+## Node / Vite
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+## Editor
+.vs/
+.vscode/
+.claude/
+*.swp
+*~
+.DS_Store
+
+## IDE
+.idea/
+
+## OS
+Thumbs.db

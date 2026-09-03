@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/Scattergories.Server/" />
+  <Folder Name="/Scattergories.Server/API/">
+    <Project Path="Scattergories.Server/API/Scattergories.Server.csproj" />
+  </Folder>
+  <Folder Name="/Scattergories.Server/Application/">
+    <Project Path="Scattergories.Server/Application/Scattergories.Application.csproj" />
+  </Folder>
+  <Folder Name="/Scattergories.Server/Domain/">
+    <Project Path="Scattergories.Server/Domain/Scattergories.Domain.csproj" />
+  </Folder>
+  <Folder Name="/Scattergories.Server/Infrastructure/">
+    <Project Path="Scattergories.Server/Infrastructure/Scattergories.Infrastructure.csproj" />
+  </Folder>
+</Solution>
