@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Scattergories.Application.Common.Interfaces;
 using System.Security.Claims;
@@ -33,18 +34,18 @@ public class GameHostRequirementHandler : AuthorizationHandler<GameHostRequireme
             return;
         }
 
-        var userIdClaim = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var userIdClaim = httpContext.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
         var code = httpContext.Request.Query["code"];
 
         if (string.IsNullOrEmpty(userIdClaim) || string.IsNullOrEmpty(code))
         {
-            context.Fail("Missing authentication or game code.");
+            context.Fail();
             return;
         }
 
         if (!Guid.TryParse(userIdClaim, out var userId))
         {
-            context.Fail("Invalid user ID in token.");
+            context.Fail();
             return;
         }
 
@@ -54,14 +55,14 @@ public class GameHostRequirementHandler : AuthorizationHandler<GameHostRequireme
 
         if (game == null)
         {
-            context.Fail("Game not found.");
+            context.Fail();
             return;
         }
 
         var player = game.Players.FirstOrDefault(p => p.UserId == userId);
         if (player == null || !player.IsHost)
         {
-            context.Fail("Player is not the host of this game.");
+            context.Fail();
             return;
         }
 

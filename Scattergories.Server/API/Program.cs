@@ -1,3 +1,5 @@
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.EntityFrameworkCore;
 using Scattergories.Application.Common.Interfaces;
 using Scattergories.Domain.Entities;
@@ -28,6 +30,10 @@ builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssembly(typeof(Scattergories.Application.Features.Games.Commands.CreateGame.CreateGameCommand).Assembly);
 });
+
+// --- FluentValidation ---
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssembly(typeof(Scattergories.Application.Features.Games.Commands.CreateGame.CreateGameCommand).Assembly);
 
 // --- Domain Services ---
 builder.Services.AddScoped<IScoringService, ScoringService>();
@@ -137,6 +143,20 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+// --- Global exception handling ---
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Scattergories.Domain.Exceptions.ScattergoriesException ex)
+    {
+        context.Response.StatusCode = 400;
+        await context.Response.WriteAsJsonAsync(new { error = ex.Message });
+    }
+});
+
 // --- Seed database on startup ---
 using (var scope = app.Services.CreateScope())
 {
@@ -163,6 +183,6 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.MapHub<GameHub>("/hubs/game");
+app.MapHub<GameHub>("/hubs/game").RequireAuthorization();
 
 app.Run();

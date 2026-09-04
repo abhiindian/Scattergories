@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Scattergories.Application.Common.Interfaces;
 using Scattergories.Domain.Entities;
 
@@ -12,6 +13,9 @@ public class ScattergoriesDbContext : DbContext, IApplicationDbContext
 {
     public ScattergoriesDbContext(DbContextOptions<ScattergoriesDbContext> options)
         : base(options) { }
+
+    public async Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
+        => await (this as DbContext)!.Database.BeginTransactionAsync(cancellationToken);
 
     public DbSet<Game> Games => Set<Game>();
     public DbSet<Round> Rounds => Set<Round>();

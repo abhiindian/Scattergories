@@ -1,4 +1,6 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Scattergories.Application.Common.Interfaces;
@@ -13,6 +15,7 @@ using Scattergories.Application.Features.Games.Queries.GetGame;
 using Scattergories.Domain.Enums;
 using Scattergories.Domain.Services;
 using Scattergories.Infrastructure.Data;
+using System.Security.Claims;
 
 namespace Scattergories.Server.API.Controllers;
 
@@ -27,13 +30,20 @@ public class GamesController : ControllerBase
     private readonly ScattergoriesDbContext _context;
     private readonly ILogger<GamesController> _logger;
     private readonly ILetterService _letterService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public GamesController(IMediator mediator, ScattergoriesDbContext context, ILogger<GamesController> logger, ILetterService letterService)
+    public GamesController(
+        IMediator mediator,
+        ScattergoriesDbContext context,
+        ILogger<GamesController> logger,
+        ILetterService letterService,
+        IHttpContextAccessor httpContextAccessor)
     {
         _mediator = mediator;
         _context = context;
         _logger = logger;
         _letterService = letterService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     /// <summary>
@@ -101,14 +111,28 @@ public class GamesController : ControllerBase
     /// POST /api/games/{code}/answers
     /// </summary>
     [HttpPost("{code}/answers")]
+    [Authorize]
     public async Task<IActionResult> SubmitAnswers(string code, [FromBody] SubmitAnswersRequest request)
     {
         var game = await GetGameEntity(code);
         if (game == null) return NotFound();
 
-        // In production, player ID comes from authentication context
-        // For now, this is used as a fallback; the primary path is SignalR
-        var playerId = Guid.Parse(HttpContext.Items["PlayerId"]?.ToString() ?? Guid.Empty.ToString());
+        // Resolve player from JWT authentication context
+        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        Guid playerId;
+
+        if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userGuid))
+        {
+            var player = await _context.Players
+                .FirstOrDefaultAsync(p => p.UserId == userGuid && p.GameId == game.Id);
+            if (player == null)
+                return Unauthorized("Player not found in game.");
+            playerId = player.Id;
+        }
+        else
+        {
+            return Unauthorized("Authentication required.");
+        }
 
         var command = new SubmitAnswersCommand(
             game.Id,
@@ -126,6 +150,7 @@ public class GamesController : ControllerBase
     /// POST /api/games/{code}/reveal
     /// </summary>
     [HttpPost("{code}/reveal")]
+    [Authorize]
     public async Task<ActionResult<RevealAndScoreResult>> RevealAndScore(string code)
     {
         var game = await GetGameEntity(code);
@@ -141,6 +166,7 @@ public class GamesController : ControllerBase
     /// POST /api/games/{code}/next-round
     /// </summary>
     [HttpPost("{code}/next-round")]
+    [Authorize]
     public async Task<IActionResult> NextRound(string code)
     {
         var game = await GetGameEntity(code);
@@ -168,6 +194,7 @@ public class GamesController : ControllerBase
     /// POST /api/games/{code}/end
     /// </summary>
     [HttpPost("{code}/end")]
+    [Authorize]
     public async Task<ActionResult<EndGameResult>> EndGame(string code)
     {
         var game = await GetGameEntity(code);

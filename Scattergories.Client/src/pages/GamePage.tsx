@@ -3,19 +3,25 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useGameStore } from '../state/gameStore';
 import { hubConnection } from '../api/hubConnection';
 import type { GameState, ScoredAnswerDto, CategoryDto } from '../api/types';
+import { toast } from 'sonner';
 
 type GamePhase = 'timer' | 'answering' | 'revealing' | 'scored';
 
+/**
+ * Game page - redesigned with Carbon Design System.
+ * Features: Sticky HUD bar with letter spotlight, circular timer widget,
+ * Categories Input Stream with letter prefix, Floating Mobile Interaction Bar.
+ */
 export function GamePage() {
   const { code } = useParams<{ code: string }>()!;
   const navigate = useNavigate();
   const { playerName, game, roundTimer, roundTimerTotal, isTimerActive, setGame, setRoundTimer, setHubConnected, playerId } = useGameStore();
   const [phase, setPhase] = useState<GamePhase>('timer');
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [showScoreboard, setShowScoreboard] = useState(false);
   const [letter, setLetter] = useState('');
   const [roundCategories, setRoundCategories] = useState<CategoryDto[]>([]);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const hasFetched = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -111,12 +117,10 @@ export function GamePage() {
         hubConnection.onAnswersRevealed((data: { roundCategories: CategoryDto[]; scoredAnswers: ScoredAnswerDto[] }) => {
           setRoundCategories(data.roundCategories);
           setPhase('revealing');
-          setShowScoreboard(true);
         });
 
         hubConnection.onRoundComplete(() => {
           setPhase('scored');
-          setShowScoreboard(true);
         });
 
         hubConnection.onError((error: string) => {
@@ -142,71 +146,132 @@ export function GamePage() {
 
   const displayLetter = letter || game?.currentRound?.letter || '';
   const displayCategories = roundCategories.length > 0 ? roundCategories : (game?.currentRound?.categories || []);
+  const currentRoundNumber = game?.currentRound?.roundNumber || 1;
+  const totalRounds = 9;
+  const timerProgress = roundTimerTotal > 0 ? ((roundTimerTotal - timeLeft) / roundTimerTotal) * 100 : 0;
+
+  // Format time as MM:SS
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   // --- Timer View ---
   if (phase === 'timer') {
-    const percentage = timeLeft > 0 ? (timeLeft / roundTimerTotal) * 100 : 0;
-    const isLow = timeLeft <= 10 && timeLeft > 0;
-
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-64px)] px-4">
-        <div className="text-center max-w-sm w-full">
-          {/* Letter Display */}
-          <div className="mb-8">
-            <div className="relative inline-block">
-              <div className={`text-9xl font-bold ${
-                isLow ? 'text-red-400 animate-pulse' : 'text-white'
-              }`}>
-                {displayLetter || '?'}
+      <div className="max-w-md md:max-w-4xl lg:max-w-[1120px] mx-auto px-4 md:px-8 py-4 pb-28 md:pb-8">
+        {/* Sticky Game Heads-Up Bar */}
+        <div className="sticky top-0 z-30 pt-2 pb-3 bg-surface/90 backdrop-blur-md">
+          <div className="bg-surface-container-lowest rounded-xl shadow-md p-4 flex items-center justify-between gap-3">
+            {/* Round Info & Target Letter Spotlight */}
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-xl bg-secondary flex flex-col items-center justify-center text-on-secondary shadow-sm">
+                <span className="font-label-caps text-[10px] opacity-80 uppercase leading-none">Letter</span>
+                <span className="font-display-letter text-[28px] leading-none font-bold">{displayLetter}</span>
               </div>
-              <div className="absolute -inset-4 bg-white/5 rounded-full blur-2xl -z-10" />
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1">
+                  <span className="font-label-caps text-[10px] text-on-surface-variant font-semibold">
+                    ROUND {currentRoundNumber} OF {totalRounds}
+                  </span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-carbon-teal"></span>
+                </div>
+                <span className="font-headline-sm text-[14px] text-on-surface">
+                  List #{currentRoundNumber} Classic
+                </span>
+                <span className="font-label-sm text-[12px] text-primary font-medium">
+                  All words must start with "{displayLetter}"
+                </span>
+              </div>
             </div>
-            <p className="text-violet-200/70 text-sm mt-2 font-medium uppercase tracking-wider">
-              Find words starting with this letter
-            </p>
+
+            {/* Circular Timer Widget */}
+            <div className="relative flex items-center justify-center flex-shrink-0 w-16 h-16 bg-surface-container-low rounded-full shadow-inner">
+              <svg className="w-14 h-14 -rotate-90" viewBox="0 0 48 48">
+                <circle className="stroke-surface-container-highest" cx="24" cy="24" fill="transparent" r="20" strokeWidth="4" />
+                <circle
+                  className="stroke-primary transition-all duration-500"
+                  cx="24"
+                  cy="24"
+                  fill="transparent"
+                  r="20"
+                  strokeDasharray="125.6"
+                  strokeDashoffset={125.6 - (timerProgress / 100) * 125.6}
+                  strokeLinecap="round"
+                  strokeWidth="4"
+                />
+              </svg>
+              <div className="absolute flex flex-col items-center justify-center">
+                <span className="font-headline-sm text-[12px] text-on-surface font-bold tracking-tight">{formatTime(timeLeft)}</span>
+                <span className="font-label-caps text-[9px] text-on-surface-variant leading-none">SEC</span>
+              </div>
+            </div>
           </div>
 
-          {/* Timer Circle */}
-          <div className="mb-8 relative inline-block">
-            <svg className="w-40 h-40 -rotate-90" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="6" />
-              <circle
-                cx="50" cy="50" r="45" fill="none"
-                stroke={isLow ? '#f87171' : '#fbbf24'}
-                strokeWidth="6"
-                strokeLinecap="round"
-                strokeDasharray={`${2 * Math.PI * 45}`}
-                strokeDashoffset={`${2 * Math.PI * 45 * (1 - percentage / 100)}`}
-                className="transition-all duration-1000"
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className={`text-5xl font-bold font-mono ${isLow ? 'text-red-400' : 'text-white'}`}>
-                {timeLeft}
+          {/* Progress Urgency Bar */}
+          <div className="w-full h-1.5 bg-surface-container-highest rounded-full mt-2 overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full transition-all duration-500"
+              style={{ width: `${timerProgress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Categories Preview Pills */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mt-3 md:mt-4">
+          {displayCategories.slice(0, 3).map((cat, index) => (
+            <div key={cat.id} className="bg-surface-container-lowest rounded-xl p-3 shadow-sm flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-caps text-[10px]">
+                    #{index + 1}
+                  </span>
+                  <span className="font-headline-sm text-[14px] text-on-surface">{cat.name}</span>
+                </div>
+              </div>
+              <div className="relative flex items-center">
+                <div className="absolute left-3 w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center font-headline-sm text-secondary font-bold select-none">
+                  {displayLetter}
+                </div>
+                <input
+                  className="w-full h-12 pl-14 pr-4 rounded-lg bg-surface-container-low text-on-surface font-body-lg text-[16px] font-medium focus:outline-none focus:bg-surface-container"
+                  placeholder={`Starts with ${displayLetter}...`}
+                  type="text"
+                  readOnly
+                  value=""
+                />
+              </div>
+            </div>
+          ))}
+
+          {/* Show more if > 3 categories */}
+          {displayCategories.length > 3 && (
+            <div className="text-center py-2">
+              <span className="font-label-sm text-[12px] text-on-surface-variant">
+                +{displayCategories.length - 3} more categories below
               </span>
             </div>
-          </div>
-
-          {/* Categories Preview */}
-          {displayCategories.length > 0 && (
-            <div className="grid grid-cols-3 gap-2 max-w-sm mx-auto mb-6">
-              {displayCategories.slice(0, 6).map(cat => (
-                <div key={cat.id} className="bg-white/8 backdrop-blur-sm rounded-lg px-2 py-2 text-xs text-white/80 text-center border border-white/10">
-                  {cat.name}
-                </div>
-              ))}
-              {displayCategories.length > 6 && (
-                <div className="bg-white/5 rounded-lg flex items-center justify-center text-white/40 text-xs border border-white/10">
-                  +{displayCategories.length - 6}
-                </div>
-              )}
-            </div>
           )}
+        </div>
 
-          {/* Connection Status */}
-          <div className="flex items-center justify-center gap-2 text-white/40 text-xs">
-            <div className={`w-2 h-2 rounded-full ${game?.gameState === 'RoundRunning' ? 'bg-green-400' : 'bg-amber-400'}`} />
-            {game?.gameState === 'RoundRunning' ? 'Round in progress' : 'Waiting...'}
+        {/* Floating Mobile Interaction Bar */}
+        <div className="fixed md:static bottom-0 left-0 right-0 z-40 px-4 md:px-0 pb-4 md:pb-0 pt-2 md:pt-6 bg-surface/90 md:bg-transparent backdrop-blur-xl md:backdrop-blur-none shadow-[0_-4px_20px_rgba(0,0,0,0.06)] md:shadow-none mt-auto">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-end gap-1 md:gap-4 max-w-md md:max-w-none mx-auto">
+            {/* Auto-save notification */}
+            <div className="flex items-center justify-center gap-1 text-on-surface-variant">
+              <span className="material-symbols-outlined text-[16px] md:text-[20px] text-carbon-green">cloud_done</span>
+              <span className="font-label-sm text-[12px] md:text-[14px]">All answers saved in real-time</span>
+            </div>
+            {/* Action Button */}
+            <button
+              onClick={() => setPhase('answering')}
+              className="w-full md:w-auto h-12 md:h-14 md:px-8 rounded-lg md:rounded-xl bg-primary text-on-primary font-headline-sm text-[14px] md:text-[16px] flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-transform"
+              type="button"
+            >
+              <span>Submit Answers Early</span>
+              <span className="material-symbols-outlined text-[20px] md:text-[24px]">send</span>
+            </button>
           </div>
         </div>
       </div>
@@ -215,10 +280,6 @@ export function GamePage() {
 
   // --- Answering View ---
   if (phase === 'answering') {
-    const handleAnswerChange = (categoryId: string, value: string) => {
-      setAnswers(prev => ({ ...prev, [categoryId]: value }));
-    };
-
     const handleSubmitAnswers = async () => {
       try {
         const answerList = Object.entries(answers)
@@ -230,71 +291,143 @@ export function GamePage() {
         }
       } catch (e) {
         console.error('Failed to submit answers:', e);
+        toast.error('Failed to submit answers');
       }
     };
 
-    const filledCount = Object.values(answers).filter(v => v.trim()).length;
-    const totalCount = displayCategories.length || 1;
-
     return (
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 border border-white/20 text-white text-4xl font-bold mb-2">
-            {displayLetter}
-          </div>
-          <p className="text-violet-200/70 text-sm font-medium">
-            Fill in the categories below
-          </p>
-        </div>
-
-        {/* Progress indicator */}
-        <div className="flex items-center gap-2 text-white/40 text-xs mb-2">
-          <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-amber-400 rounded-full transition-all duration-300"
-              style={{ width: `${(filledCount / totalCount) * 100}%` }}
-            />
-          </div>
-          <span>{filledCount}/{totalCount}</span>
-        </div>
-
-        {/* Answer Form */}
-        <div className="space-y-3">
-          {displayCategories.map((cat, idx) => (
-            <div key={cat.id} className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10">
-              <label className="text-amber-400 font-semibold text-sm w-24 shrink-0">{cat.name}</label>
-              <input
-                type="text"
-                value={answers[cat.id] || ''}
-                onChange={(e) => handleAnswerChange(cat.id, e.target.value)}
-                placeholder={`Starts with ${displayLetter}`}
-                className="flex-1 px-3 py-2 bg-white/10 text-white placeholder-white/30 rounded-lg border border-white/10 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none transition-all"
-                maxLength={30}
-                autoFocus={idx === 0}
-              />
+      <div className="max-w-md md:max-w-4xl lg:max-w-[1120px] mx-auto px-4 md:px-8 py-4 pb-28 md:pb-8">
+        {/* Sticky Game Heads-Up Bar */}
+        <div className="sticky top-0 z-30 pt-2 pb-3 bg-surface/90 backdrop-blur-md">
+          <div className="bg-surface-container-lowest rounded-xl shadow-md p-4 flex items-center justify-between gap-3">
+            {/* Round Info & Target Letter Spotlight */}
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-xl bg-secondary flex flex-col items-center justify-center text-on-secondary shadow-sm">
+                <span className="font-label-caps text-[10px] opacity-80 uppercase leading-none">Letter</span>
+                <span className="font-display-letter text-[28px] leading-none font-bold">{displayLetter}</span>
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1">
+                  <span className="font-label-caps text-[10px] text-on-surface-variant font-semibold">
+                    ROUND {currentRoundNumber} OF {totalRounds}
+                  </span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-carbon-teal"></span>
+                </div>
+                <span className="font-headline-sm text-[14px] text-on-surface">
+                  List #{currentRoundNumber} Classic
+                </span>
+                <span className="font-label-sm text-[12px] text-primary font-medium">
+                  All words must start with "{displayLetter}"
+                </span>
+              </div>
             </div>
-          ))}
+
+            {/* Status Badge */}
+            <div className="flex-shrink-0 px-2.5 py-1.5 rounded-full bg-primary-fixed text-on-primary-fixed">
+              <span className="font-label-caps text-[10px] font-semibold">ANSWERING</span>
+            </div>
+          </div>
         </div>
 
-        {/* Submit Button */}
-        <button
-          onClick={handleSubmitAnswers}
-          disabled={filledCount === 0}
-          className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl font-bold text-lg hover:from-amber-600 hover:to-amber-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98] shadow-lg shadow-amber-500/30"
-        >
-          Submit Answers ({filledCount})
-        </button>
+        {/* Categories Input Stream */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mt-3 md:mt-4">
+          {displayCategories.map((cat, index) => {
+            const hasAnswer = answers[cat.id]?.trim();
+            const isActive = activeCategory === cat.id;
 
-        {/* Scoreboard Toggle */}
-        {showScoreboard && (
-          <button
-            onClick={() => setShowScoreboard(false)}
-            className="w-full py-2 text-white/40 hover:text-white/70 transition-colors text-sm"
-          >
-            Hide Scores
-          </button>
-        )}
+            return (
+              <div key={cat.id} className={`bg-surface-container-lowest rounded-xl p-4 shadow-sm flex flex-col gap-2 transition-all ${isActive ? 'shadow-md' : ''}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`px-2 py-0.5 rounded-full font-label-caps text-[10px] ${
+                      isActive ? 'bg-primary text-on-primary font-semibold' : 'bg-surface-container text-on-surface-variant'
+                    }`}>
+                      #{index + 1}
+                    </span>
+                    <span className={`font-headline-sm text-[14px] ${isActive ? 'text-on-surface font-semibold' : 'text-on-surface'}`}>
+                      {cat.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {hasAnswer && (
+                      <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-carbon-green/10 text-carbon-green">
+                        <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                        <span className="font-label-caps text-[10px] font-semibold">VALID</span>
+                      </div>
+                    )}
+                    {!hasAnswer && <span className="font-label-caps text-[10px] text-on-surface-variant">0/1 PTS</span>}
+                  </div>
+                </div>
+
+                <div className="relative flex items-center">
+                  <div className={`absolute left-3 w-8 h-8 rounded-lg flex items-center justify-center font-headline-sm font-bold select-none ${
+                    isActive ? 'bg-secondary text-on-secondary shadow-sm' : 'bg-secondary/10 text-secondary'
+                  }`}>
+                    {displayLetter}
+                  </div>
+                  <input
+                    className={`w-full h-12 pl-14 pr-10 rounded-lg bg-surface-container-low text-on-surface font-body-lg text-[16px] font-medium focus:outline-none focus:bg-surface-container ${
+                      isActive ? 'bg-surface-container-lowest font-semibold shadow-inner' : ''
+                    }`}
+                    placeholder={`Starts with ${displayLetter}...`}
+                    type="text"
+                    value={answers[cat.id] || ''}
+                    onChange={(e) => {
+                      setAnswers(prev => ({ ...prev, [cat.id]: e.target.value }));
+                      setActiveCategory(cat.id);
+                    }}
+                    onFocus={() => setActiveCategory(cat.id)}
+                  />
+                  {hasAnswer && (
+                    <button
+                      onClick={() => setAnswers(prev => ({ ...prev, [cat.id]: '' }))}
+                      className="absolute right-3 w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface"
+                      type="button"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">close</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Live Quick-Pick Word Suggestions */}
+                {isActive && (
+                  <div className="flex items-center gap-2 overflow-x-auto pt-1 pb-0.5 no-scrollbar">
+                    <span className="font-label-caps text-[10px] text-on-surface-variant mr-1 flex-shrink-0">HINTS:</span>
+                    {['Example 1', 'Example 2', 'Example 3', 'Example 4'].map((hint) => (
+                      <button
+                        key={hint}
+                        className="px-3 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-[12px] hover:bg-surface-container-high transition-colors flex-shrink-0"
+                        type="button"
+                      >
+                        {hint}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Floating Mobile Interaction Bar */}
+        <div className="fixed md:static bottom-0 left-0 right-0 z-40 px-4 md:px-0 pb-4 md:pb-0 pt-2 md:pt-6 bg-surface/90 md:bg-transparent backdrop-blur-xl md:backdrop-blur-none shadow-[0_-4px_20px_rgba(0,0,0,0.06)] md:shadow-none mt-auto">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-end gap-1 md:gap-4 max-w-md md:max-w-none mx-auto">
+            {/* Auto-save notification */}
+            <div className="flex items-center justify-center gap-1 text-on-surface-variant">
+              <span className="material-symbols-outlined text-[16px] md:text-[20px] text-carbon-green">cloud_done</span>
+              <span className="font-label-sm text-[12px] md:text-[14px]">All answers saved in real-time</span>
+            </div>
+            {/* Action Button */}
+            <button
+              onClick={handleSubmitAnswers}
+              className="w-full md:w-auto h-12 md:h-14 md:px-8 rounded-lg md:rounded-xl bg-primary text-on-primary font-headline-sm text-[14px] md:text-[16px] flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-transform"
+              type="button"
+            >
+              <span>Submit Answers</span>
+              <span className="material-symbols-outlined text-[20px] md:text-[24px]">send</span>
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -302,7 +435,7 @@ export function GamePage() {
   // --- Revealing / Scored View ---
   if (phase === 'revealing' || phase === 'scored') {
     const scoredAnswers = game?.currentRound?.answers || [];
-    const groupedAnswers: Record<string, Array<{ playerName: string; text: string; points: number }>> = {};
+    const groupedAnswers: Record<string, Array<{ playerName: string; text: string; points: number | undefined }>> = {};
     scoredAnswers.forEach(a => {
       if (!groupedAnswers[a.categoryId]) groupedAnswers[a.categoryId] = [];
       groupedAnswers[a.categoryId].push({
@@ -312,112 +445,115 @@ export function GamePage() {
       });
     });
 
+    const isLastRound = game?.gameState === 'Finished';
+
     return (
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
-        {/* Round Header */}
-        <div className="text-center mb-4">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/10 border border-white/20 text-white text-3xl font-bold mb-2">
-            {displayLetter}
+      <div className="max-w-md md:max-w-4xl lg:max-w-[1120px] mx-auto px-4 md:px-8 py-4 pb-28 md:pb-8">
+        {/* Sticky Game Heads-Up Bar */}
+        <div className="sticky top-0 z-30 pt-2 pb-3 bg-surface/90 backdrop-blur-md">
+          <div className="bg-surface-container-lowest rounded-xl shadow-md p-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-xl bg-secondary flex flex-col items-center justify-center text-on-secondary shadow-sm">
+                <span className="font-label-caps text-[10px] opacity-80 uppercase leading-none">Letter</span>
+                <span className="font-display-letter text-[28px] leading-none font-bold">{displayLetter}</span>
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1">
+                  <span className="font-label-caps text-[10px] text-on-surface-variant font-semibold">
+                    ROUND {currentRoundNumber} OF {totalRounds}
+                  </span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-carbon-teal"></span>
+                </div>
+                <span className="font-headline-sm text-[14px] text-on-surface">
+                  {phase === 'revealing' ? 'Revealing Answers' : 'Round Complete'}
+                </span>
+              </div>
+            </div>
           </div>
-          <p className="text-white/60 text-sm font-medium">
-            {phase === 'scored' ? 'Round Complete' : 'Round Results'}
-          </p>
         </div>
 
-        {/* Answers by Category */}
-        <div className="space-y-3">
-          {displayCategories.map(cat => {
-            const catAnswers = groupedAnswers[cat.id] || [];
+        {/* Revealing Answers */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mt-3 md:mt-4">
+          {displayCategories.map((cat, index) => {
+            const categoryAnswers = groupedAnswers[cat.id] || [];
+
             return (
-              <div key={cat.id} className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
-                <div className="px-4 py-2.5 bg-white/5 border-b border-white/5">
-                  <h3 className="text-amber-400 font-semibold text-sm">{cat.name}</h3>
+              <div key={cat.id} className="bg-surface-container-lowest rounded-xl p-4 shadow-sm flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-caps text-[10px]">
+                      #{index + 1}
+                    </span>
+                    <span className="font-headline-sm text-[14px] text-on-surface">{cat.name}</span>
+                  </div>
                 </div>
-                {catAnswers.length === 0 ? (
-                  <p className="text-white/30 text-sm px-4 py-3 italic">No valid answers</p>
-                ) : (
-                  <ul className="divide-y divide-white/5">
-                    {catAnswers.map((a, i) => (
-                      <li key={i} className="px-4 py-2.5 flex justify-between items-center">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-violet-400 to-indigo-500 flex items-center justify-center text-white font-bold text-[10px] shrink-0">
-                            {a.playerName[0].toUpperCase()}
+
+                {/* Player Submissions */}
+                {categoryAnswers.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    {categoryAnswers.map((answer, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-surface-container-low">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-headline-sm text-[12px] font-bold">
+                            {answer.playerName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                           </div>
-                          <span className="text-white/50 text-xs">{a.playerName}:</span>
-                          <span className={a.points > 0 ? 'text-white font-medium' : 'text-red-400 line-through text-sm'}>
-                            {a.text}
-                          </span>
+                          <div>
+                            <span className="font-headline-sm text-[13px] text-on-surface font-medium">{answer.playerName}</span>
+                            <span className="font-body-md text-[14px] text-on-surface-variant block">
+                              <span className="text-primary font-bold">{displayLetter}</span>{answer.text}
+                            </span>
+                          </div>
                         </div>
-                        <span className={`font-bold text-xs ml-2 shrink-0 ${
-                          a.points > 0 ? 'text-green-400' : 'text-red-400'
-                        }`}>
-                          {a.points} pts
-                        </span>
-                      </li>
+                        <div className="flex items-center gap-1">
+                          {answer.points && answer.points > 0 ? (
+                            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-carbon-green/10 text-carbon-green">
+                              <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                              <span className="font-label-caps text-[10px] font-semibold">UNIQUE</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-carbon-red/10 text-carbon-red">
+                              <span className="material-symbols-outlined text-[14px]">cancel</span>
+                              <span className="font-label-caps text-[10px] font-semibold">DUPLICATE</span>
+                            </div>
+                          )}
+                          {answer.points && (
+                            <span className="font-headline-sm text-[14px] text-primary font-bold">+{answer.points}</span>
+                          )}
+                        </div>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <span className="font-label-sm text-[12px] text-on-surface-variant">No answers submitted</span>
+                  </div>
                 )}
               </div>
             );
           })}
         </div>
 
-        {/* Team Totals */}
-        {game?.teams && game.teams.length > 0 && (
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10">
-            <h3 className="text-white/60 text-xs font-medium uppercase tracking-wider mb-2">Team Scores</h3>
-            <div className="space-y-1.5">
-              {game.teams.map(t => (
-                <div key={t.id} className="flex justify-between text-white text-sm">
-                  <span className="font-medium">{t.name}</span>
-                  <span className="text-amber-400 font-bold">{t.teamScore} pts</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Player Totals */}
-        {game?.players && (
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10">
-            <h3 className="text-white/60 text-xs font-medium uppercase tracking-wider mb-2">Player Standings</h3>
-            <div className="space-y-1.5">
-              {[...game.players]
-                .sort((a, b) => b.totalScore - a.totalScore)
-                .map((p, i) => (
-                  <div key={p.id} className="flex justify-between text-white text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                        i === 0 ? 'bg-amber-500 text-white' :
-                        i === 1 ? 'bg-gray-400 text-white' :
-                        i === 2 ? 'bg-amber-700 text-white' :
-                        'bg-white/10 text-white/50'
-                      }`}>
-                        {i + 1}
-                      </span>
-                      <span className="text-white/70">
-                        {p.name}
-                        {p.name === playerName && <span className="text-amber-300 text-xs ml-1">(You)</span>}
-                      </span>
-                    </div>
-                    <span className="font-bold text-amber-400">{p.totalScore} pts</span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-
+        {/* Next Round / View Scoreboard */}
         {phase === 'scored' && (
-          <div className="text-center py-4">
-            {game?.gameState === 'Finished' ? (
+          <div className="mt-4 md:mt-6 flex flex-col md:flex-row md:justify-end gap-2.5 md:gap-4">
+            {isLastRound ? (
               <button
                 onClick={() => navigate(`/scoreboard/${code}`)}
-                className="px-8 py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl font-bold text-lg hover:from-amber-600 hover:to-amber-700 transition-all active:scale-[0.98] shadow-lg shadow-amber-500/30"
+                className="w-full md:w-auto md:px-8 h-12 md:h-14 rounded-lg md:rounded-xl bg-primary text-on-primary font-headline-sm text-[14px] md:text-[16px] font-semibold flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(15,98,254,0.3)] active:scale-[0.98] transition-transform"
+                type="button"
               >
-                View Final Scoreboard
+                <span className="material-symbols-outlined text-[22px] md:text-[24px]">emoji_events</span>
+                <span>View Final Scoreboard</span>
               </button>
             ) : (
-              <p className="text-white/40 text-sm">Next round starting...</p>
+              <button
+                onClick={() => {}}
+                className="w-full md:w-auto md:px-8 h-12 md:h-14 rounded-lg md:rounded-xl bg-primary-container text-white font-headline-sm text-[14px] md:text-[16px] font-semibold flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(15,98,254,0.3)] active:scale-[0.98] transition-transform"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[22px] md:text-[24px]">arrow_forward</span>
+                <span>Next Category</span>
+              </button>
             )}
           </div>
         )}

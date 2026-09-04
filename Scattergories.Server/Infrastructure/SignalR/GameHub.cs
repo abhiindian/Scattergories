@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Scattergories.Application.Common.Interfaces;
@@ -263,7 +264,7 @@ public class GameHub : Hub
     /// </summary>
     private async Task<bool> IsPlayerHost(HttpContext? httpContext, string gameCode)
     {
-        var userIdClaim = httpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        var userIdClaim = httpContext?.User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
             return false;
 

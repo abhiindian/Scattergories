@@ -9,7 +9,8 @@ namespace Scattergories.Infrastructure.Services;
 public class LetterService : ILetterService
 {
     private const string Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    private static readonly Random SharedRandom = new();
+    // Random.Shared is thread-safe (internally uses per-thread instance pooling)
+    private static readonly Random SharedRandom = Random.Shared;
 
     public char GetNextLetter(Domain.Entities.Game game)
     {

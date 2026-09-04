@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Scattergories.Domain.Entities;
 
 namespace Scattergories.Application.Common.Interfaces;
@@ -18,4 +19,9 @@ public interface IApplicationDbContext
     DbSet<RoundCategory> RoundCategories { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Begins a database transaction. Used for TOCTOU-safe operations.
+    /// </summary>
+    Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 }

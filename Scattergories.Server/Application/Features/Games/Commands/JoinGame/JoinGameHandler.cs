@@ -9,7 +9,7 @@ namespace Scattergories.Application.Features.Games.Commands.JoinGame;
 
 /// <summary>
 /// Handler for joining an existing game.
-/// The first player joining becomes the host.
+/// The first player joining becomes the host (set during game creation).
 /// </summary>
 public class JoinGameHandler : IRequestHandler<JoinGameCommand, Guid>
 {
@@ -22,9 +22,9 @@ public class JoinGameHandler : IRequestHandler<JoinGameCommand, Guid>
 
     public async Task<Guid> Handle(JoinGameCommand request, CancellationToken cancellationToken)
     {
+        // Validate game existence and state in a single query
         var game = await _context.Games
             .Include(g => g.Players)
-            .ThenInclude(p => p.Team)
             .FirstOrDefaultAsync(g => g.Code == request.GameCode, cancellationToken);
 
         if (game == null)
@@ -33,20 +33,31 @@ public class JoinGameHandler : IRequestHandler<JoinGameCommand, Guid>
         if (game.GameState != GameState.Lobby)
             throw new ScattergoriesException("This game has already started.");
 
-        var player = new Player(request.PlayerName)
+        // Check for duplicate player name within this game (prevent same-name collisions)
+        if (game.Players.Any(p => p.Name.Equals(request.PlayerName, StringComparison.OrdinalIgnoreCase)))
+            throw new ScattergoriesException("A player with this name already exists in the game.");
+
+        // First player joining becomes the host
+        var isFirstPlayer = !game.Players.Any();
+
+        // Add player directly to Players DbSet (EF tracks new entities as Added by convention)
+        var player = new Player(request.PlayerName, isHost: isFirstPlayer)
         {
             GameId = game.Id
         };
 
-        // First player becomes the host
-        if (!game.Players.Any())
-        {
-            player.IsHost = true;
-            game.StartedAt = DateTime.UtcNow;
-        }
+        await _context.Players.AddAsync(player, cancellationToken);
 
-        game.Players.Add(player);
-        await _context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            // Fallback for concurrent join attempts where the UNIQUE constraint
+            // on Player.Name catches a duplicate that the in-memory check missed
+            throw new ScattergoriesException("A player with this name already exists in the game.");
+        }
 
         return player.Id;
     }

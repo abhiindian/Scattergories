@@ -46,6 +46,10 @@ public class SubmitAnswersHandler : IRequestHandler<SubmitAnswersCommand, Unit>
         if (player == null)
             throw new ScattergoriesException("Player not found.");
 
+        // Ensure player belongs to this game (prevent cross-game answer submission)
+        if (player.GameId != request.GameId)
+            throw new ScattergoriesException("Player does not belong to this game.");
+
         // Validate no duplicate answers from the same player in the same round
         var existingAnswers = player.Answers.Where(a => a.RoundId == round.Id).ToList();
 

@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, useIsAuthenticated } from '../context/AuthContext';
 import { useGameStore } from '../state/gameStore';
+import { GlassAvatar } from './common/GlassAvatar';
+import { toast } from 'sonner';
 
 export function Header() {
   const { user, logout } = useAuth();
@@ -28,6 +30,7 @@ export function Header() {
   const handleNameSave = () => {
     if (tempName.trim()) {
       setPlayerName(tempName.trim());
+      toast.success('Name updated!');
     }
     setEditingName(false);
     setShowMenu(false);
@@ -37,6 +40,7 @@ export function Header() {
     logout();
     reset();
     setShowMenu(false);
+    toast.success('Signed out successfully');
     navigate('/');
   };
 
@@ -114,14 +118,12 @@ export function Header() {
             <div className="relative">
               <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/30 hover:border-amber-400 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+                className="focus:outline-none focus:ring-2 focus:ring-amber-400/50"
               >
                 {user.profileImageUrl ? (
-                  <img src={user.profileImageUrl} alt={user.name} className="w-full h-full object-cover" />
+                  <GlassAvatar src={user.profileImageUrl} name={user.name} size="lg" />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-violet-400 to-indigo-500 flex items-center justify-center text-white font-bold text-lg">
-                    {(user.name || 'U')[0].toUpperCase()}
-                  </div>
+                  <GlassAvatar name={user.name} size="lg" gradient="from-violet-400 to-indigo-500" />
                 )}
               </button>
 
