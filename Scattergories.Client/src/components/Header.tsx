@@ -8,11 +8,9 @@ import { toast } from 'sonner';
 export function Header() {
   const { user, logout } = useAuth();
   const isAuthenticated = useIsAuthenticated();
-  const { playerName, setPlayerName, reset } = useGameStore();
+  const { playerName, reset } = useGameStore();
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
-  const [editingName, setEditingName] = useState(false);
-  const [tempName, setTempName] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu on outside click
@@ -20,21 +18,11 @@ export function Header() {
     function handleClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setShowMenu(false);
-        setEditingName(false);
       }
     }
     if (showMenu) document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showMenu]);
-
-  const handleNameSave = () => {
-    if (tempName.trim()) {
-      setPlayerName(tempName.trim());
-      toast.success('Name updated!');
-    }
-    setEditingName(false);
-    setShowMenu(false);
-  };
 
   const handleLogout = () => {
     logout();
@@ -88,7 +76,7 @@ export function Header() {
                 <span className="hidden md:inline">Lobby</span>
               </Link>
               <Link
-                to="/scoreboard"
+                to="/rankings"
                 className="px-3 py-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-container transition-colors font-label-sm flex items-center gap-1.5"
               >
                 <span className="material-symbols-outlined text-[18px]">emoji_events</span>
@@ -114,31 +102,9 @@ export function Header() {
             <div className="flex items-center gap-3" ref={menuRef}>
           {/* Player Name */}
           <div className="flex items-center gap-2">
-            {editingName ? (
-              <div className="flex items-center gap-1">
-                <input
-                  type="text"
-                  value={tempName}
-                  onChange={(e) => setTempName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleNameSave();
-                    if (e.key === 'Escape') setEditingName(false);
-                  }}
-                  className="w-28 px-2 py-1 bg-white/20 text-white rounded-md text-sm outline-none border border-white/30 focus:border-amber-400 placeholder-white/40"
-                  autoFocus
-                  maxLength={20}
-                  placeholder="Your name"
-                  defaultValue={playerName}
-                />
-              </div>
-            ) : (
-              <button
-                onClick={() => { setTempName(playerName || user?.name || ''); setEditingName(true); }}
-                className="text-white/80 hover:text-white text-sm font-medium transition-colors px-2 py-1 rounded hover:bg-white/10"
-              >
+              <span className="text-white/80 text-sm font-medium px-2 py-1">
                 {playerName || user?.name || 'Player'}
-              </button>
-            )}
+              </span>
           </div>
 
           {/* Avatar */}
@@ -162,16 +128,7 @@ export function Header() {
                     <p className="font-semibold text-gray-900 text-sm truncate">{user.name}</p>
                     <p className="text-gray-500 text-xs truncate">{user.email}</p>
                   </div>
-                  <button
-                    onClick={() => {
-                      setTempName(playerName || user.name);
-                      setEditingName(true);
-                      setShowMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
-                  >
-                    <span className="w-4 text-center">✏️</span> Change Name
-                  </button>
+
                   <button
                     onClick={handleLogout}
                     className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 border-t border-gray-100"

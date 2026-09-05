@@ -74,7 +74,7 @@ export function LandingPage() {
 
         <button
           onClick={handlePlayNow}
-          className="h-14 px-8 rounded-full bg-primary text-on-primary font-headline-sm text-lg font-bold flex items-center gap-2 shadow-[0_8px_24px_rgba(15,98,254,0.3)] hover:scale-105 active:scale-95 transition-all"
+          className="h-14 px-8 rounded-full bg-primary-fixed text-on-primary-fixed font-headline-sm text-lg font-bold flex items-center gap-2 shadow-[0_8px_24px_rgba(15,98,254,0.3)] hover:scale-105 active:scale-95 transition-all"
         >
           <span>Play Now for Free</span>
           <span className="material-symbols-outlined text-[24px]">arrow_forward</span>

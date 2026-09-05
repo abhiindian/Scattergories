@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../api/apiClient';
 import { useAuth } from '../context/AuthContext';
 import { useGameStore } from '../state/gameStore';
-import { useAuthStore } from '../state/authStore';
+
 
 /**
  * Home page - redesigned with Carbon Design System.
@@ -13,8 +13,8 @@ import { useAuthStore } from '../state/authStore';
 export function Dashboard() {
   const navigate = useNavigate();
   const { handleGoogleLogin, isAuthenticated, user } = useAuth();
-  const { playerName, setPlayerName } = useGameStore();
-  const { updateUser } = useAuthStore();
+  const { playerName } = useGameStore();
+
   const displayPlayerName = playerName || user?.name;
   const [activeTab, setActiveTab] = useState<'join' | 'create'>('join');
   const [pinCode, setPinCode] = useState<string[]>(['', '', '', '', '']);
@@ -106,6 +106,18 @@ export function Dashboard() {
     }
   };
 
+  const handlePasteEvent = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData('text');
+    const chars = text.toUpperCase().replace(/[^A-Z0-9]/g, '').split('').slice(0, 5);
+    const newPin = ['', '', '', '', ''];
+    chars.forEach((char, i) => { newPin[i] = char; });
+    setPinCode(newPin);
+    if (chars.length > 0 && pinRefs.current[chars.length - 1]) {
+      pinRefs.current[chars.length - 1]?.focus();
+    }
+  };
+
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
@@ -162,25 +174,10 @@ export function Dashboard() {
                       <span className="font-headline-sm text-[14px] text-text-primary truncate" id="playerNicknameDisplay">
                         {displayPlayerName}
                       </span>
-                      <button
-                        onClick={() => {
-                          const next = prompt('Enter your player nickname:', displayPlayerName);
-                          if (next && next.trim()) {
-                            if (isAuthenticated) {
-                              updateUser(next.trim());
-                            } else {
-                              setPlayerName(next.trim());
-                            }
-                          }
-                        }}
-                        className="p-1 rounded-full text-on-surface-variant hover:text-primary transition-colors"
-                        type="button"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">edit</span>
-                      </button>
+
                     </div>
                     <span className="font-label-sm text-[11px] text-text-secondary">
-                      Signed In • Lv. 4 Wordie
+                      Signed In
                     </span>
                   </div>
                 </div>
@@ -258,21 +255,34 @@ export function Dashboard() {
                         value={char}
                         onChange={(e) => handlePinChange(index, e.target.value)}
                         onKeyDown={(e) => handlePinKeyDown(index, e)}
+                        onPaste={handlePasteEvent}
                       />
                     ))}
                   </div>
 
                   {/* Helper Actions */}
                   <div className="flex items-center justify-between px-1">
-                    <button
-                      onClick={handlePaste}
-                      className="inline-flex items-center gap-1 font-label-caps text-[10px] text-primary hover:text-on-primary-fixed-variant transition-colors"
-                      type="button"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">content_paste</span>
-                      <span>PASTE FROM CLIPBOARD</span>
-                    </button>
-                    <span className="font-label-sm text-[12px] text-text-secondary">Host waiting: <span className="font-semibold text-text-primary">Sammy D.</span></span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => {
+                          setPinCode(['', '', '', '', '']);
+                          pinRefs.current[0]?.focus();
+                        }}
+                        className="inline-flex items-center gap-1 font-label-caps text-[10px] text-error hover:text-error/80 transition-colors"
+                        type="button"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">backspace</span>
+                        <span>CLEAR</span>
+                      </button>
+                      <button
+                        onClick={handlePaste}
+                        className="inline-flex items-center gap-1 font-label-caps text-[10px] text-primary hover:text-on-primary-fixed-variant transition-colors"
+                        type="button"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">content_paste</span>
+                        <span>PASTE</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Join CTA */}

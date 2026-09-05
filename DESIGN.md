@@ -339,8 +339,9 @@ GET  /api/auth/me              → UserDto              (JWT required)
 
 ```
 POST   /api/games                          → { code: string }        (public)
-POST   /api/games/{code}/join              → { playerId: Guid }     (public)
+POST   /api/games/{code}/join              → { playerId: Guid }      (public)
 GET    /api/games/{code}                   → GetGameDto              (public)
+PUT    /api/games/{code}/config            → IActionResult           (JWT required)
 POST   /api/games/{code}/start             → IActionResult           (JWT required)
 POST   /api/games/{code}/begin-round       → BeginRoundResult        (JWT required)
 POST   /api/games/{code}/reveal-and-score  → RevealAndScoreResult    (JWT required)
@@ -565,6 +566,7 @@ conn.onreconnected(() => {
 | `/api/games` (POST) | None (public) |
 | `/api/games/{code}/join` | None (public) |
 | `/api/games/{code}` (GET) | None (public) |
+| `/api/games/{code}/config` (PUT) | JWT Bearer (host only) |
 | `/api/games/{code}/start` | JWT Bearer (host only) |
 | `/api/games/{code}/begin-round` | JWT Bearer (host only) |
 | `/api/games/{code}/reveal-and-score` | JWT Bearer (host only) |

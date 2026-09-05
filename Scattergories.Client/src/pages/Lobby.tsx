@@ -339,7 +339,7 @@ export function Lobby() {
               <button
                 onClick={handleStart}
                 disabled={starting || playerCount === 0}
-                className="relative overflow-hidden w-full min-h-[52px] md:min-h-[64px] rounded-xl md:rounded-2xl bg-primary text-on-primary font-headline-sm text-[14px] md:text-[18px] font-semibold flex items-center justify-center gap-2 shadow-[0_8px_30px_rgba(15,98,254,0.3)] transition-all hover:bg-primary-container active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="relative overflow-hidden w-full min-h-[52px] md:min-h-[64px] rounded-xl md:rounded-2xl bg-primary-fixed text-on-primary-fixed font-headline-sm text-[14px] md:text-[18px] font-semibold flex items-center justify-center gap-2 shadow-[0_8px_30px_rgba(15,98,254,0.3)] transition-all hover:bg-primary-fixed-dim active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 type="button"
               >
                 {starting ? (

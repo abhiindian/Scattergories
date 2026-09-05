@@ -355,12 +355,13 @@ The application uses **SQLite** by default. The database file (`scattergories.db
 | POST | `/api/games` | Create a new game | No |
 | POST | `/api/games/{code}/join` | Join an existing game | No |
 | GET | `/api/games/{code}` | Get current game state | No |
+| PUT | `/api/games/{code}/config` | Update game configuration (host only) | Yes |
 | POST | `/api/games/{code}/start` | Start the game (host only) | Yes |
 | POST | `/api/games/{code}/begin-round` | Begin a new round (host only) | Yes |
 | POST | `/api/games/{code}/reveal-and-score` | Reveal answers and calculate scores | Yes |
 | POST | `/api/games/{code}/end-game` | End the game and show final standings | Yes |
 
-**Create Game Request:**
+**Create Game / Update Config Request:**
 ```json
 {
   "roundCount": 9,

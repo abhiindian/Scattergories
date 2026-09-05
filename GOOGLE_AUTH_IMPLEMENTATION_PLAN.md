@@ -1845,3 +1845,10 @@ dotnet ef database update
 3. Configure Google OAuth consent screen with the frontend URL
 4. Add the frontend origin to Google OAuth authorized origins
 5. Consider upgrading to asymmetric signing (RS256) for production
+
+---
+
+## Post-Implementation Updates
+
+- **Name Editing Removed**: The ability for players to arbitrarily edit their names in the `Header` and `Dashboard` components has been completely removed to enforce consistency with the Google-provided name. If playing as a guest, the player must provide their name during the initial join/create flow and cannot change it later.
+- **Game Configuration Updates**: A `PUT /api/games/{code}/config` endpoint was added, and the UI was updated to allow the host to modify the rules of an existing room before starting the game.
