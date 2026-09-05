@@ -9,7 +9,7 @@ import { useGameStore } from '../state/gameStore';
  * Features: Welcome & Identity Strip, Segmented Controller (Join/Create),
  * 5-char PIN input, How To Play, Daily Sprint, Popular Decks.
  */
-export function Home() {
+export function Dashboard() {
   const navigate = useNavigate();
   const { handleGoogleLogin, isAuthenticated } = useAuth();
   const { playerName, setPlayerName } = useGameStore();
@@ -157,7 +157,7 @@ export function Home() {
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="font-headline-sm text-[14px] text-text-primary truncate" id="playerNicknameDisplay">
-                        {playerName || 'Guest Player'}
+                        {playerName}
                       </span>
                       <button
                         onClick={() => {
@@ -173,7 +173,7 @@ export function Home() {
                       </button>
                     </div>
                     <span className="font-label-sm text-[11px] text-text-secondary">
-                      {isAuthenticated ? 'Signed In' : 'Guest Player'} • Lv. 4 Wordie
+                      Signed In • Lv. 4 Wordie
                     </span>
                   </div>
                 </div>

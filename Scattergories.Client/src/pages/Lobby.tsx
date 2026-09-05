@@ -102,7 +102,7 @@ export function Lobby() {
     <ErrorState
       message={error}
       actionLabel="Back to Home"
-      onAction={() => navigate('/')}
+      onAction={() => navigate('/dashboard')}
     />
   );
 

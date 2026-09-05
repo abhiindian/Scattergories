@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
-import { HashRouter, Routes, Route, Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import {
   GoogleAuthProviderWrapper,
   AuthProvider,
   useIsAuthenticated,
 } from './context/AuthContext';
-import { Home } from './pages/Home';
+import { LandingPage } from './pages/LandingPage';
+import { Dashboard } from './pages/Dashboard';
 import { Login } from './pages/Login';
 import { Rules } from './pages/Rules';
 import { Lobby } from './pages/Lobby';
@@ -54,7 +55,7 @@ function BottomNav() {
   const navigate = useNavigate();
 
   const navItems = [
-    { icon: 'home', label: 'Home', path: '/' },
+    { icon: 'home', label: 'Home', path: '/dashboard' },
     { icon: 'group', label: 'Lobby', path: '/lobby' },
     { icon: 'emoji_events', label: 'Rankings', path: '/scoreboard' },
     { icon: 'history', label: 'History', path: '/history' },
@@ -62,7 +63,7 @@ function BottomNav() {
   ];
 
   const isActivePath = (itemPath: string) => {
-    if (itemPath === '/') return location.pathname === '/';
+    if (itemPath === '/dashboard') return location.pathname === '/dashboard';
     if (itemPath === '/lobby') return location.pathname.startsWith('/lobby');
     if (itemPath === '/scoreboard') return location.pathname.startsWith('/scoreboard');
     if (itemPath === '/history') return location.pathname === '/history';
@@ -101,7 +102,7 @@ function BottomNav() {
   );
 }
 
-/** Main layout replacing AuthGuard to allow guests */
+/** Main layout with AuthLayout and BottomNav */
 function MainLayout() {
   return (
     <>
@@ -114,23 +115,24 @@ function MainLayout() {
 export function App() {
   return (
     <GoogleAuthProviderWrapper clientId={CLIENT_ID}>
-      <HashRouter>
+      <BrowserRouter>
         <AuthProvider clientId={CLIENT_ID}>
           <Routes>
             {/* Public routes */}
+            <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<Login />} />
 
             {/* Authenticated routes */}
             <Route element={<AuthGuard />}>
-              <Route path="/" element={<MainLayout />}>
-                <Route index element={<Home />} />
+              <Route element={<MainLayout />}>
+                <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/host" element={<HostRoomConfig />} />
-                <Route path="/lobby" element={<Navigate to="/" replace />} />
+                <Route path="/lobby" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/lobby/:code" element={<Lobby />} />
                 <Route path="/game/:code" element={<GamePage />} />
-                <Route path="/scoreboard" element={<Navigate to="/" replace />} />
+                <Route path="/scoreboard" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/scoreboard/:code" element={<Scoreboard />} />
-                <Route path="/history" element={<Home />} />
+                <Route path="/history" element={<Dashboard />} />
                 <Route path="/rules" element={<Rules />} />
               </Route>
             </Route>
@@ -139,7 +141,7 @@ export function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AuthProvider>
-      </HashRouter>
+      </BrowserRouter>
     </GoogleAuthProviderWrapper>
   );
 }

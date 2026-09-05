@@ -96,7 +96,7 @@ export function HostRoomConfig() {
       <div className="flex flex-col gap-3 mb-4 md:mb-8">
         <div className="flex items-center justify-between">
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/dashboard')}
             className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
             type="button"
           >
@@ -104,7 +104,7 @@ export function HostRoomConfig() {
           </button>
           <div className="inline-flex p-1 rounded-full bg-surface-container-high shadow-inner hidden md:inline-flex">
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/dashboard')}
               className="px-6 py-2 rounded-full font-label-caps text-[12px] text-on-surface-variant hover:text-on-surface transition-all"
               type="button"
             >
@@ -484,7 +484,7 @@ export function HostRoomConfig() {
           <div className="flex justify-center mt-1 md:mt-2">
             <button
               type="button"
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/dashboard')}
               className="text-on-surface-variant hover:text-on-surface font-label-sm text-[12px] md:text-[14px] py-2"
             >
               Cancel and return to Main Menu

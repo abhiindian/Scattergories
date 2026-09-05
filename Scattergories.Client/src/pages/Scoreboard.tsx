@@ -50,7 +50,7 @@ export function Scoreboard() {
     <ErrorState
       message={error}
       actionLabel="Back to Home"
-      onAction={() => navigate('/')}
+      onAction={() => navigate('/dashboard')}
     />
   );
 
@@ -107,7 +107,7 @@ export function Scoreboard() {
               <span>Play Again</span>
             </button>
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/dashboard')}
               className="w-full h-12 md:h-14 rounded-lg bg-surface-container-high text-on-surface font-body-md text-[14px] md:text-[16px] font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform hover:bg-surface-container-highest"
               type="button"
             >
@@ -317,7 +317,7 @@ export function Scoreboard() {
           <span>Play Again with Same Players</span>
         </button>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/dashboard')}
           className="w-full h-12 rounded-lg bg-surface-container-high text-on-surface font-body-md text-[14px] font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           type="button"
         >

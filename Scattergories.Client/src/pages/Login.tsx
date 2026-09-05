@@ -1,41 +1,34 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useGameStore } from '../state/gameStore';
-import { toast } from 'sonner';
+
 
 /**
- * Login page for Google authentication.
- * Shows Google Sign-In button and guest mode as fallback.
+ * Login page for Google authentication only.
+ * Guest mode has been removed — players must sign in with Google.
  */
 export function Login() {
-  const { isAuthenticated } = useAuth();
-  const { login, handleGoogleLogin } = useAuth();
-  const { setPlayerName } = useGameStore();
+  const { isAuthenticated, handleGoogleLogin } = useAuth();
   const navigate = useNavigate();
-  const [guestName, setGuestName] = useState('');
-  const [error, setError] = useState('');
 
   // Redirect if already authenticated — must be in useEffect, not during render
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
-  const handleGuestLogin = () => {
-    if (!guestName.trim()) {
-      setError('Please enter a name');
-      return;
-    }
-    setPlayerName(guestName.trim());
-    login(guestName.trim());
-    toast.success('Welcome to Scattergories!');
-    navigate('/');
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 relative">
+      {/* Back to Home button */}
+      <button
+        onClick={() => navigate('/')}
+        className="absolute top-6 left-6 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+      >
+        <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+        <span className="text-sm font-medium">Back to Home</span>
+      </button>
+
       <div className="w-full max-w-sm">
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-lg p-8">
@@ -68,47 +61,7 @@ export function Login() {
             <span className="text-sm font-medium text-gray-700">Sign in with Google</span>
           </button>
 
-          {/* Divider */}
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-3 bg-white text-gray-400">or</span>
-            </div>
-          </div>
-
-          {/* Guest Login */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-900 text-center mb-3">
-              Play as guest
-            </h3>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={guestName}
-                onChange={(e) => setGuestName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleGuestLogin()}
-                placeholder="Enter your name"
-                maxLength={20}
-                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              />
-              <button
-                onClick={handleGuestLogin}
-                disabled={!guestName.trim()}
-                className="px-5 py-2.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Go
-              </button>
-            </div>
-            {error && <p className="text-red-500 text-xs mt-1 text-center">{error}</p>}
-          </div>
         </div>
-
-        {/* Footer */}
-        <p className="text-center text-gray-400 text-xs mt-4">
-          No account needed — just pick a name and join a game
-        </p>
       </div>
     </div>
   );

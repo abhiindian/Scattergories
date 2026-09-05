@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth, useIsAuthenticated } from '../context/AuthContext';
 import { useGameStore } from '../state/gameStore';
 import { GlassAvatar } from './common/GlassAvatar';
@@ -74,7 +74,7 @@ export function Header() {
             {/* Nav Links */}
             <div className="flex items-center gap-1 md:gap-2">
               <Link
-                to="/"
+                to="/dashboard"
                 className="px-3 py-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-container transition-colors font-label-sm flex items-center gap-1.5"
               >
                 <span className="material-symbols-outlined text-[18px]">home</span>

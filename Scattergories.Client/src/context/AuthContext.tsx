@@ -44,19 +44,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const handleGoogleLogin = useGoogleLogin({
     onSuccess: async (response) => {
       try {
-        // Exchange access token for user profile
-        const profileResponse = await fetch(
-          'https://www.googleapis.com/oauth2/v3/userinfo',
-          { headers: { Authorization: `Bearer ${response.access_token}` } }
-        );
-        const profile = await profileResponse.json();
-
-        // Exchange Google access token with our backend
-        const { accessToken, user: authUser } = await apiClient.googleAuth(profile.id);
+        // Exchange Google ID token with our backend for verification
+        const { accessToken, user: authUser } = await apiClient.googleAuth((response as any).access_token || (response as any).id_token);
         setAuth(accessToken, authUser);
-        navigate('/');
-      } catch {
-        console.error('Google login failed');
+        navigate('/dashboard');
+      } catch (error) {
+        console.error('Google login failed:', error);
       }
     },
     onError: (error) => {
