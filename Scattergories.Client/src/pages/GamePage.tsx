@@ -78,7 +78,7 @@ export function GamePage() {
     const connect = async () => {
       const token = localStorage.getItem('authToken');
       try {
-        await hubConnection.start(code!, playerName ?? '', playerId ?? undefined, token ?? undefined);
+        await hubConnection.start(code!, playerId ?? undefined, token ?? undefined);
         setHubConnected(true);
 
         // Initial game state fetch after connection

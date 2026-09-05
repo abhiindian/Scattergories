@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../api/apiClient';
 import { useGameStore } from '../state/gameStore';
+import { hubConnection } from '../api/hubConnection';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ErrorState } from '../components/common/ErrorState';
 import { toast } from 'sonner';
@@ -34,10 +35,28 @@ export function Lobby() {
 
   useEffect(() => {
     fetchGame();
-    // Poll for updates every 3 seconds
-    const interval = setInterval(fetchGame, 3000);
-    return () => clearInterval(interval);
-  }, [fetchGame]);
+    
+    // Connect to SignalR for real-time updates
+    const token = localStorage.getItem('token');
+    const playerId = localStorage.getItem('playerId');
+    if (code && playerName) {
+      hubConnection.start(code, playerId || undefined, token || undefined)
+        .catch(console.error);
+        
+      hubConnection.onGameUpdated((state) => {
+        setGame(state);
+      });
+      
+      hubConnection.onRoundStarted(() => {
+        navigate(`/game/${code}`);
+      });
+    }
+
+    return () => {
+      // We don't stop the connection here because GamePage needs it, 
+      // but we could if we wanted to be strict about cleanup.
+    };
+  }, [fetchGame, code, playerName, navigate, setGame]);
 
   const handleStart = async () => {
     if (starting) return;
@@ -76,7 +95,7 @@ export function Lobby() {
     }
   };
 
-  const isHost = game?.players[0]?.name === playerName;
+  const isHost = game?.players?.find(p => p.name === playerName)?.isHost || false;
   const playerCount = game?.players.length || 0;
   const maxSlots = 8;
 
@@ -212,7 +231,7 @@ export function Lobby() {
                           )}
                         </div>
                         <span className="font-label-sm text-[12px] md:text-[13px] text-on-surface-variant">
-                          {isHost ? 'Match Leader' : `Score: ${player.totalScore || 0} pts`}
+                          {player.isHost ? 'Match Leader' : `Score: ${player.totalScore || 0} pts`}
                         </span>
                       </div>
                     </div>
@@ -228,27 +247,7 @@ export function Lobby() {
                 );
               })}
 
-              {/* Empty Slot */}
-              {Array.from({ length: Math.max(0, maxSlots - playerCount) }).map((_, i) => (
-                <div key={`empty-${i}`} className="flex items-center justify-between p-3 md:p-4 rounded-xl bg-surface-container-low/70 border border-dashed border-surface-container-highest">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-12 md:w-14 h-12 md:h-14 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant">
-                      <span className="material-symbols-outlined text-[24px] md:text-[28px]">person_add</span>
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-headline-sm text-[14px] md:text-[15px] text-on-surface-variant truncate">Empty Slot {playerCount + i + 1}</span>
-                      <span className="font-label-sm text-[12px] md:text-[13px] text-outline">Awaiting connection...</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleShareInvite}
-                    className="px-3 md:px-4 py-1.5 md:py-2 rounded-lg bg-surface-container-highest text-primary font-label-caps text-[10px] md:text-[12px] font-bold uppercase transition-transform active:scale-95 hover:bg-surface-container-lowest shadow-sm"
-                    type="button"
-                  >
-                    + Ping
-                  </button>
-                </div>
-              ))}
+              
             </div>
           </div>
         </div>
@@ -336,6 +335,7 @@ export function Lobby() {
           {/* Action Dock (Desktop inline, Mobile sticky) */}
           <div className="fixed md:static bottom-0 left-0 right-0 z-20 p-4 md:p-0 bg-gradient-to-t from-surface via-surface to-transparent md:bg-none mt-auto">
             <div className="max-w-md md:max-w-none mx-auto flex flex-col gap-2.5 md:gap-4">
+              {isHost ? (
               <button
                 onClick={handleStart}
                 disabled={starting || playerCount === 0}
@@ -357,6 +357,11 @@ export function Lobby() {
                   </>
                 )}
               </button>
+              ) : (
+                <div className="w-full min-h-[52px] md:min-h-[64px] rounded-xl md:rounded-2xl bg-surface-container-high text-on-surface-variant font-headline-sm text-[14px] md:text-[18px] font-semibold flex items-center justify-center shadow-inner">
+                  Waiting for host to start...
+                </div>
+              )}
               <button
                 onClick={handleShareInvite}
                 className="w-full min-h-[48px] md:min-h-[56px] rounded-xl md:rounded-2xl bg-surface-container-highest md:bg-surface-container-low text-primary font-headline-sm text-[14px] md:text-[16px] font-semibold flex items-center justify-center gap-2 transition-all hover:bg-surface-container-high active:scale-[0.98]"

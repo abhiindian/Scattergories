@@ -96,7 +96,7 @@ export const apiClient = {
     }>('/auth/me'),
 
   joinGameAuth: (code: string, playerName?: string) =>
-    request<{ playerId: string }>(`/games/${code}/join/auth`, {
+    request<{ playerId: string }>(`/auth/games/${code}/join/auth`, {
       method: 'POST',
       body: JSON.stringify({ playerName }),
     }),

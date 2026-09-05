@@ -17,7 +17,7 @@ export function Dashboard() {
 
   const displayPlayerName = playerName || user?.name;
   const [activeTab, setActiveTab] = useState<'join' | 'create'>('join');
-  const [pinCode, setPinCode] = useState<string[]>(['', '', '', '', '']);
+  const [pinCode, setPinCode] = useState<string[]>(['', '', '', '', '', '']);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<'classic' | 'speed'>('classic');
@@ -37,6 +37,8 @@ export function Dashboard() {
     try {
       const timerSeconds = selectedPreset === 'speed' ? 60 : 180;
       const code = await apiClient.createGame({ timerSeconds });
+      const joinResult = await apiClient.joinGameAuth(code, displayPlayerName || '');
+      localStorage.setItem('playerId', joinResult.playerId);
       navigate(`/lobby/${code}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to create game');
@@ -55,7 +57,7 @@ export function Dashboard() {
       setError('Enter your name first');
       return;
     }
-    if (code.length < 3) {
+    if (code.length < 6) {
       setError('Enter a game code');
       return;
     }
@@ -80,7 +82,7 @@ export function Dashboard() {
     newPin[index] = upper.charAt(0);
     setPinCode(newPin);
     
-    if (index < 4 && pinRefs.current[index! + 1]) {
+    if (index < 5 && pinRefs.current[index! + 1]) {
       pinRefs.current[index! + 1]?.focus();
     }
   };
@@ -94,8 +96,8 @@ export function Dashboard() {
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      const chars = text.toUpperCase().replace(/[^A-Z0-9]/g, '').split('').slice(0, 5);
-      const newPin = ['', '', '', '', ''];
+      const chars = text.toUpperCase().replace(/[^A-Z0-9]/g, '').split('').slice(0, 6);
+      const newPin = ['', '', '', '', '', ''];
       chars.forEach((char, i) => { newPin[i] = char; });
       setPinCode(newPin);
       if (chars.length > 0 && pinRefs.current[chars.length - 1]) {
@@ -109,8 +111,8 @@ export function Dashboard() {
   const handlePasteEvent = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
     const text = e.clipboardData.getData('text');
-    const chars = text.toUpperCase().replace(/[^A-Z0-9]/g, '').split('').slice(0, 5);
-    const newPin = ['', '', '', '', ''];
+    const chars = text.toUpperCase().replace(/[^A-Z0-9]/g, '').split('').slice(0, 6);
+    const newPin = ['', '', '', '', '', ''];
     chars.forEach((char, i) => { newPin[i] = char; });
     setPinCode(newPin);
     if (chars.length > 0 && pinRefs.current[chars.length - 1]) {
@@ -241,7 +243,7 @@ export function Dashboard() {
                     </span>
                   </div>
 
-                  {/* 5-Character PIN Input */}
+                  {/* 6-Character PIN Input */}
                   <div className="flex items-center justify-between gap-2 my-1">
                     {pinCode.map((char, index) => (
                       <input
@@ -265,7 +267,7 @@ export function Dashboard() {
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => {
-                          setPinCode(['', '', '', '', '']);
+                          setPinCode(['', '', '', '', '', '']);
                           pinRefs.current[0]?.focus();
                         }}
                         className="inline-flex items-center gap-1 font-label-caps text-[10px] text-error hover:text-error/80 transition-colors"

@@ -42,3 +42,7 @@ dist-ssr/
 ## OS
 Thumbs.db
 /design
+build.log
+.gitignore
+deviceid
+*.db-shm

@@ -22,7 +22,6 @@ let connection: signalR.HubConnection | null = null;
 export const hubConnection = {
   async start(
     gameCode: string,
-    playerName: string,
     playerId?: string,
     token?: string,
   ): Promise<void> {
@@ -78,7 +77,7 @@ export const hubConnection = {
 
     conn.onreconnected(() => {
       // Re-join the game group after reconnect
-      connection?.invoke('JoinGameRoom', gameCode, playerName, playerId)
+      connection?.invoke('JoinGameRoom', gameCode, playerId ?? '')
         .catch(err => console.error('Re-join failed:', err));
     });
 
@@ -87,7 +86,7 @@ export const hubConnection = {
     await connection.start();
 
     // Join the game room group
-    await connection.invoke('JoinGameRoom', gameCode, playerName, playerId)
+    await connection.invoke('JoinGameRoom', gameCode, playerId ?? '')
       .catch(err => console.error('Failed to join game room:', err));
   },
 

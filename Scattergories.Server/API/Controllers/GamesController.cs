@@ -51,7 +51,7 @@ public class GamesController : ControllerBase
     /// POST /api/games
     /// </summary>
     [HttpPost]
-    public async Task<ActionResult<string>> CreateGame([FromBody] CreateGameRequest request)
+    public async Task<IActionResult> CreateGame([FromBody] CreateGameRequest request)
     {
         var command = new CreateGameCommand(
             request.RoundCount,
@@ -63,7 +63,7 @@ public class GamesController : ControllerBase
         );
 
         var code = await _mediator.Send(command);
-        return CreatedAtAction(nameof(GetGame), new { code }, new { code });
+        return Ok(new { code });
     }
 
     /// <summary>
@@ -93,7 +93,7 @@ public class GamesController : ControllerBase
     /// POST /api/games/{code}/join
     /// </summary>
     [HttpPost("{code}/join")]
-    public async Task<ActionResult<Guid>> JoinGame(string code, [FromBody] JoinGameRequest request)
+    public async Task<IActionResult> JoinGame(string code, [FromBody] JoinGameRequest request)
     {
         var command = new JoinGameCommand(code, request.PlayerName);
         var playerId = await _mediator.Send(command);
