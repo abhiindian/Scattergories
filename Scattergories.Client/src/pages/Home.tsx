@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../api/apiClient';
 import { useAuth } from '../context/AuthContext';
 import { useGameStore } from '../state/gameStore';
@@ -21,6 +21,10 @@ export function Home() {
   const pinRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const handleCreate = async () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
     if (!playerName.trim()) {
       setError('Enter your name first');
       return;
@@ -39,6 +43,10 @@ export function Home() {
   };
 
   const handleJoin = async () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
     const code = pinCode.join('');
     if (!playerName.trim()) {
       setError('Enter your name first');
@@ -51,12 +59,7 @@ export function Home() {
     setLoading(true);
     setError('');
     try {
-      let result: { playerId: string };
-      if (isAuthenticated) {
-        result = await apiClient.joinGameAuth(code.toUpperCase(), playerName);
-      } else {
-        result = await apiClient.joinGame(code.toUpperCase(), playerName);
-      }
+      const result = await apiClient.joinGameAuth(code.toUpperCase(), playerName);
       localStorage.setItem('playerId', result.playerId);
       navigate(`/lobby/${code.toUpperCase()}`);
     } catch (e) {
@@ -387,9 +390,9 @@ export function Home() {
             <div className="rounded-xl bg-surface-container-lowest p-4 md:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <span className="font-label-caps text-[10px] md:text-[12px] text-text-secondary font-bold">HOW TO PLAY</span>
-                <span className="font-label-sm text-[12px] md:text-[14px] text-primary flex items-center gap-0.5 font-semibold cursor-pointer hover:underline">
-                  View Rules <span className="material-symbols-outlined text-[14px] md:text-[16px]">arrow_forward</span>
-                </span>
+                  <Link to="/rules" className="font-label-sm text-[12px] md:text-[14px] text-primary flex items-center gap-0.5 font-semibold hover:underline">
+                    View Rules <span className="material-symbols-outlined text-[14px] md:text-[16px]">arrow_forward</span>
+                  </Link>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
                 <div className="flex flex-col items-center text-center gap-1.5 p-3 rounded-lg bg-surface-container-low">
@@ -413,47 +416,6 @@ export function Home() {
                   <span className="font-label-caps text-[11px] md:text-[12px] font-bold text-text-primary leading-tight mt-1">3. SCORE UNIQUE</span>
                   <span className="font-label-sm text-[11px] md:text-[12px] text-text-secondary leading-tight">Duplicates cancel! Unique words win</span>
                 </div>
-              </div>
-            </div>
-
-            {/* Daily Solo Sprint */}
-            <div className="rounded-xl bg-surface-container-highest p-4 md:p-6 flex items-center justify-between gap-3 shadow-sm">
-              <div className="flex items-center gap-4 min-w-0">
-                <div className="w-12 md:w-14 h-12 md:h-14 rounded-lg bg-carbon-amber text-inverse-surface flex items-center justify-center flex-shrink-0 shadow-sm">
-                  <span className="material-symbols-outlined text-[28px] md:text-[32px]">emoji_events</span>
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-headline-sm text-[14px] md:text-[18px] text-text-primary font-bold">Daily Solo Sprint</span>
-                    <span className="px-1.5 py-0.2 rounded bg-carbon-magenta text-white font-label-caps text-[10px] md:text-[11px] font-bold">NEW</span>
-                  </div>
-                  <p className="font-label-sm text-[12px] md:text-[14px] text-text-secondary truncate mt-0.5">Letter 'M' • 12 categories • Beat 42s</p>
-                </div>
-              </div>
-              <button className="flex-shrink-0 h-10 md:h-12 px-4 md:px-5 rounded-lg bg-surface-container-lowest text-primary font-label-caps text-[10px] md:text-[12px] font-bold shadow-sm hover:bg-white active:scale-95 transition-transform flex items-center gap-1" type="button">
-                <span>PLAY</span>
-                <span className="material-symbols-outlined text-[18px] md:text-[20px]">play_arrow</span>
-              </button>
-            </div>
-
-            {/* Popular List Decks */}
-            <div className="flex flex-col gap-2 md:gap-3">
-              <div className="flex items-center justify-between px-1">
-                <span className="font-label-caps text-[10px] md:text-[12px] text-text-secondary font-semibold">POPULAR LIST DECKS</span>
-                <span className="font-label-sm text-[12px] md:text-[14px] text-text-secondary">Deck 1 to 16</span>
-              </div>
-              <div className="flex gap-2 md:gap-3 overflow-x-auto pb-1 no-scrollbar">
-                {[
-                  { color: 'bg-carbon-teal', name: 'Geek & Tech' },
-                  { color: 'bg-carbon-magenta', name: 'Pop Culture 90s' },
-                  { color: 'bg-carbon-amber', name: 'Foodie Delight' },
-                  { color: 'bg-primary', name: 'Classic List 1' },
-                ].map(deck => (
-                  <div key={deck.name} className="flex-shrink-0 px-3 md:px-4 py-2 md:py-3 rounded-lg bg-surface-container-lowest flex items-center gap-2 shadow-sm cursor-pointer hover:bg-surface-container-low transition-colors">
-                    <span className={`w-2.5 h-2.5 rounded-full ${deck.color}`}></span>
-                    <span className="font-label-caps text-[10px] md:text-[12px] text-text-primary font-semibold">{deck.name}</span>
-                  </div>
-                ))}
               </div>
             </div>
           </div>

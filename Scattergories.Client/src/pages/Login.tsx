@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useGameStore } from '../state/gameStore';
@@ -16,11 +16,12 @@ export function Login() {
   const [guestName, setGuestName] = useState('');
   const [error, setError] = useState('');
 
-  // Redirect if already authenticated
-  if (isAuthenticated) {
-    navigate('/');
-    return null;
-  }
+  // Redirect if already authenticated — must be in useEffect, not during render
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleGuestLogin = () => {
     if (!guestName.trim()) {

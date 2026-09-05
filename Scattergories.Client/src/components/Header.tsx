@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth, useIsAuthenticated } from '../context/AuthContext';
 import { useGameStore } from '../state/gameStore';
 import { GlassAvatar } from './common/GlassAvatar';
@@ -51,39 +51,67 @@ export function Header() {
 
   // If not authenticated, show minimal header
   if (!isAuthenticated) {
-    return (
-      <header className="w-full bg-white/10 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-center">
-          <button
-            onClick={handleHome}
-            className="flex items-center gap-2 group"
-          >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg shadow-violet-500/25 group-hover:shadow-violet-500/40 transition-shadow">
-              S
-            </div>
-            <span className="text-white font-bold text-lg">Scattergories</span>
-          </button>
-        </div>
-      </header>
-    );
+    return null;
   }
 
   return (
-    <header className="w-full bg-white/10 backdrop-blur-md border-b border-white/10">
-      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        {/* Logo */}
-        <button
-          onClick={handleHome}
-          className="flex items-center gap-2 group"
-        >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg shadow-violet-500/25 group-hover:shadow-violet-500/40 transition-shadow">
-            S
-          </div>
-          <span className="text-white font-bold text-lg hidden sm:block">Scattergories</span>
-        </button>
+    <header>
+      {/* Top Navigation Bar */}
+      <nav className="w-full bg-surface-container-lowest border-b border-border-subtle shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 py-2">
+          <div className="flex items-center justify-between">
+            {/* Logo */}
+            <button
+              onClick={handleHome}
+              className="flex items-center gap-2 group"
+            >
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md shadow-violet-500/25 group-hover:shadow-violet-500/40 transition-shadow">
+                S
+              </div>
+              <span className="text-text-primary font-bold text-base hidden sm:block">Scattergories</span>
+            </button>
 
-        {/* Right side: Player info & menu */}
-        <div className="flex items-center gap-3" ref={menuRef}>
+            {/* Nav Links */}
+            <div className="flex items-center gap-1 md:gap-2">
+              <Link
+                to="/"
+                className="px-3 py-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-container transition-colors font-label-sm flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[18px]">home</span>
+                <span className="hidden md:inline">Home</span>
+              </Link>
+              <Link
+                to="/lobby"
+                className="px-3 py-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-container transition-colors font-label-sm flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[18px]">group</span>
+                <span className="hidden md:inline">Lobby</span>
+              </Link>
+              <Link
+                to="/scoreboard"
+                className="px-3 py-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-container transition-colors font-label-sm flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[18px]">emoji_events</span>
+                <span className="hidden md:inline">Rankings</span>
+              </Link>
+              <Link
+                to="/history"
+                className="px-3 py-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-container transition-colors font-label-sm flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[18px]">history</span>
+                <span className="hidden md:inline">History</span>
+              </Link>
+              <Link
+                to="/rules"
+                className="px-3 py-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-container transition-colors font-label-sm flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[18px]">menu_book</span>
+                <span className="hidden md:inline">Rules</span>
+              </Link>
+            </div>
+
+            {/* Right side: Player info & menu */}
+            <div className="flex items-center gap-3" ref={menuRef}>
           {/* Player Name */}
           <div className="flex items-center gap-2">
             {editingName ? (
@@ -156,6 +184,8 @@ export function Header() {
           )}
         </div>
       </div>
+    </div>
+    </nav>
     </header>
   );
 }
