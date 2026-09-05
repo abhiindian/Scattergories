@@ -30,14 +30,27 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const apiClient = {
-  createGame: (data: {
+  createGame: async (data: {
     roundCount?: number;
     timerSeconds?: number;
     pointsPerAnswer?: number;
     allowPlurals?: boolean;
     allowProperNouns?: boolean;
     allowOffensiveWords?: boolean;
-  }) => request<string>('/games', { method: 'POST', body: JSON.stringify(data) }),
+  }) => {
+    const res = await request<{ code: string }>('/games', { method: 'POST', body: JSON.stringify(data) });
+    return res.code;
+  },
+
+  updateGameConfig: (code: string, data: {
+    roundCount?: number;
+    timerSeconds?: number;
+    pointsPerAnswer?: number;
+    allowPlurals?: boolean;
+    allowProperNouns?: boolean;
+    allowOffensiveWords?: boolean;
+  }) =>
+    request<void>(`/games/${code}/config`, { method: 'PUT', body: JSON.stringify(data) }),
 
   joinGame: (code: string, playerName: string) =>
     request<{ playerId: string }>(`/games/${code}/join`, {

@@ -67,6 +67,28 @@ public class GamesController : ControllerBase
     }
 
     /// <summary>
+    /// Update an existing game configuration.
+    /// PUT /api/games/{code}/config
+    /// </summary>
+    [HttpPut("{code}/config")]
+    [Authorize]
+    public async Task<IActionResult> UpdateGameConfig(string code, [FromBody] UpdateGameConfigRequest request)
+    {
+        var command = new Scattergories.Application.Features.Games.Commands.UpdateGameConfig.UpdateGameConfigCommand(
+            code,
+            request.RoundCount,
+            request.TimerSeconds,
+            request.PointsPerAnswer,
+            request.AllowPlurals,
+            request.AllowProperNouns,
+            request.AllowOffensiveWords
+        );
+
+        await _mediator.Send(command);
+        return NoContent();
+    }
+
+    /// <summary>
     /// Join an existing game.
     /// POST /api/games/{code}/join
     /// </summary>
@@ -248,4 +270,13 @@ public record SubmitAnswersRequest(
 public record AnswerDto(
     Guid CategoryId,
     string Text
+);
+
+public record UpdateGameConfigRequest(
+    int RoundCount,
+    int TimerSeconds,
+    int PointsPerAnswer,
+    bool AllowPlurals,
+    bool AllowProperNouns,
+    bool AllowOffensiveWords
 );

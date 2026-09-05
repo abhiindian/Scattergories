@@ -1,9 +1,16 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export function LandingPage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handlePlayNow = () => {
     if (isAuthenticated) {
@@ -12,6 +19,10 @@ export function LandingPage() {
       navigate('/login');
     }
   };
+
+  if (isAuthenticated) {
+    return null; // Or a loading spinner while redirecting
+  }
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">

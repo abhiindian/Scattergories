@@ -47,13 +47,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Exchange Google ID token with our backend for verification
         const { accessToken, user: authUser } = await apiClient.googleAuth((response as any).access_token || (response as any).id_token);
         setAuth(accessToken, authUser);
+        setPlayerName(authUser.name);
         navigate('/dashboard');
       } catch (error) {
         console.error('Google login failed:', error);
+        alert('Server authentication failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
       }
     },
     onError: (error) => {
       console.error('Google login failed:', error);
+      alert('Google OAuth failed. Please try again.');
     },
     scope: 'openid email profile',
   });

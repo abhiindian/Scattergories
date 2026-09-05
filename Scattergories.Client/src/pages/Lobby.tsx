@@ -262,7 +262,18 @@ export function Lobby() {
                 <span className="material-symbols-outlined text-tertiary text-[20px] md:text-[24px]">tune</span>
                 <h2 className="font-headline-sm text-[14px] md:text-[18px] text-on-surface font-bold">Match Rules</h2>
               </div>
-              <span className="font-label-caps text-[10px] md:text-[12px] text-primary font-semibold hover:underline cursor-pointer">EDIT CONFIG</span>
+              <span 
+                className="font-label-caps text-[10px] md:text-[12px] text-primary font-semibold hover:underline cursor-pointer"
+                onClick={() => {
+                  if (isHost) {
+                    navigate(`/host?edit=${code}`);
+                  }
+                }}
+                style={{ opacity: isHost ? 1 : 0.5, cursor: isHost ? 'pointer' : 'not-allowed' }}
+                title={isHost ? 'Edit game configuration' : 'Only the host can edit the configuration'}
+              >
+                EDIT CONFIG
+              </span>
             </div>
 
             <div className="grid grid-cols-2 gap-2.5 md:gap-4">

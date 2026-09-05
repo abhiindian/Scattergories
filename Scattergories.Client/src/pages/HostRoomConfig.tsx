@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiClient } from '../api/apiClient';
 import { toast } from 'sonner';
 
@@ -43,8 +43,31 @@ const categoryDecks: { name: CategoryDeck; number: number; description: string; 
 
 export function HostRoomConfig() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editCode = searchParams.get('edit');
   const [config, setConfig] = useState<GameConfig>(defaultConfig);
   const [isCreating, setIsCreating] = useState(false);
+
+  useEffect(() => {
+    if (editCode) {
+      apiClient.getGame(editCode).then(game => {
+        setConfig({
+          categoryDeck: 'Classic Party',
+          totalRounds: game.settings.roundCount,
+          timerPerRound: game.settings.timerSeconds,
+          pointsPerUnique: game.settings.pointsPerAnswer,
+          allowPlurals: game.settings.allowPlurals,
+          allowProperNouns: game.settings.allowProperNouns,
+          allowProfanity: game.settings.allowOffensiveWords,
+          crossTeamUniqueness: true,
+          roomVisibility: 'private',
+        });
+      }).catch(err => {
+        console.error('Failed to load game config:', err);
+        toast.error('Failed to load game config');
+      });
+    }
+  }, [editCode]);
 
   // Update summary text
   const summaryText = `${config.totalRounds} Rounds • ${config.timerPerRound}s • ${config.categoryDeck} • Max 8 Players`;
@@ -54,23 +77,30 @@ export function HostRoomConfig() {
     setConfig(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleCreateRoom = async () => {
+  const handleCreateOrUpdateRoom = async () => {
     setIsCreating(true);
     try {
-      const gameCode = await apiClient.createGame({
+      const data = {
         roundCount: config.totalRounds,
         timerSeconds: config.timerPerRound,
         pointsPerAnswer: config.pointsPerUnique,
         allowPlurals: config.allowPlurals,
         allowProperNouns: config.allowProperNouns,
         allowOffensiveWords: config.allowProfanity,
-      });
+      };
 
-      toast.success('Room created successfully!');
-      navigate(`/lobby/${gameCode}`);
+      if (editCode) {
+        await apiClient.updateGameConfig(editCode, data);
+        toast.success('Room updated successfully!');
+        navigate(`/lobby/${editCode}`);
+      } else {
+        const gameCode = await apiClient.createGame(data);
+        toast.success('Room created successfully!');
+        navigate(`/lobby/${gameCode}`);
+      }
     } catch (e) {
-      console.error('Failed to create room:', e);
-      toast.error('Failed to create room. Please try again.');
+      console.error('Failed to create/update room:', e);
+      toast.error('Failed to save room config. Please try again.');
     } finally {
       setIsCreating(false);
     }
@@ -102,21 +132,23 @@ export function HostRoomConfig() {
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
-          <div className="inline-flex p-1 rounded-full bg-surface-container-high shadow-inner hidden md:inline-flex">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="px-6 py-2 rounded-full font-label-caps text-[12px] text-on-surface-variant hover:text-on-surface transition-all"
-              type="button"
-            >
-              JOIN ROOM
-            </button>
-            <button
-              className="px-6 py-2 rounded-full bg-primary font-label-caps text-[12px] text-on-primary font-semibold shadow-sm transition-all"
-              type="button"
-            >
-              HOST ROOM
-            </button>
-          </div>
+          {!editCode && (
+            <div className="inline-flex p-1 rounded-full bg-surface-container-high shadow-inner hidden md:inline-flex">
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="px-6 py-2 rounded-full font-label-caps text-[12px] text-on-surface-variant hover:text-on-surface transition-all"
+                type="button"
+              >
+                JOIN ROOM
+              </button>
+              <button
+                className="px-6 py-2 rounded-full bg-primary font-label-caps text-[12px] text-on-primary font-semibold shadow-sm transition-all"
+                type="button"
+              >
+                HOST ROOM
+              </button>
+            </div>
+          )}
           <button
             onClick={handleResetDefaults}
             className="px-2 py-1 text-primary font-label-caps text-[10px] md:text-[12px] uppercase tracking-wider hover:opacity-80 transition-opacity"
@@ -132,7 +164,9 @@ export function HostRoomConfig() {
             <span className="material-symbols-outlined text-[26px] md:text-[32px]">tune</span>
           </div>
           <div className="flex flex-col min-w-0 justify-center h-full">
-            <h1 className="font-headline-md text-[16px] md:text-[22px] text-on-surface leading-tight">Host a New Game</h1>
+            <h1 className="font-headline-md text-[16px] md:text-[22px] text-on-surface leading-tight">
+              {editCode ? 'Edit Game Rules' : 'Host a New Game'}
+            </h1>
             <p className="font-body-md text-[14px] md:text-[16px] text-on-surface-variant mt-0.5 md:mt-1">
               Configure custom rules, list decks, and round timers for your lobby.
             </p>
@@ -141,7 +175,7 @@ export function HostRoomConfig() {
       </div>
 
       {/* Main Settings Form */}
-      <form className="flex flex-col md:grid md:grid-cols-2 gap-3 md:gap-6" onSubmit={(e) => { e.preventDefault(); handleCreateRoom(); }}>
+      <form className="flex flex-col md:grid md:grid-cols-2 gap-3 md:gap-6" onSubmit={(e) => { e.preventDefault(); handleCreateOrUpdateRoom(); }}>
         {/* Left Column */}
         <div className="flex flex-col gap-4">
           {/* Category Deck Selection Carousel */}
@@ -470,12 +504,12 @@ export function HostRoomConfig() {
             {isCreating ? (
               <>
                 <span className="material-symbols-outlined text-[20px] md:text-[24px] animate-spin">progress_activity</span>
-                <span>Creating Room...</span>
+                <span>{editCode ? 'Saving Config...' : 'Creating Room...'}</span>
               </>
             ) : (
               <>
-                <span>Create Room & Open Lobby</span>
-                <span className="material-symbols-outlined text-[22px] md:text-[26px]">arrow_forward</span>
+                <span>{editCode ? 'Save Config & Return' : 'Create Room & Open Lobby'}</span>
+                <span className="material-symbols-outlined text-[22px] md:text-[26px]">{editCode ? 'save' : 'arrow_forward'}</span>
               </>
             )}
           </button>
@@ -484,10 +518,10 @@ export function HostRoomConfig() {
           <div className="flex justify-center mt-1 md:mt-2">
             <button
               type="button"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate(editCode ? `/lobby/${editCode}` : '/dashboard')}
               className="text-on-surface-variant hover:text-on-surface font-label-sm text-[12px] md:text-[14px] py-2"
             >
-              Cancel and return to Main Menu
+              Cancel and return to {editCode ? 'Lobby' : 'Main Menu'}
             </button>
           </div>
         </div>

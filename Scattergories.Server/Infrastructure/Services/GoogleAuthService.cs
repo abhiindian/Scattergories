@@ -24,10 +24,32 @@ public class GoogleAuthService
     /// </summary>
     public async Task<GoogleJsonWebSignature.Payload> VerifyTokenAsync(string googleIdToken)
     {
-        return await GoogleJsonWebSignature.ValidateAsync(googleIdToken, new GoogleJsonWebSignature.ValidationSettings
+        try
         {
-            Audience = new List<string> { GetGoogleClientId() },
-        });
+            return await GoogleJsonWebSignature.ValidateAsync(googleIdToken, new GoogleJsonWebSignature.ValidationSettings
+            {
+                Audience = new List<string> { GetGoogleClientId() },
+            });
+        }
+        catch (Exception ex) when (ex is InvalidJwtException || ex is SecurityException)
+        {
+            using var client = new System.Net.Http.HttpClient();
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", googleIdToken);
+            var response = await client.GetAsync("https://www.googleapis.com/oauth2/v3/userinfo");
+            if (!response.IsSuccessStatusCode)
+                throw new SecurityException("Invalid Google token");
+
+            var json = await response.Content.ReadAsStringAsync();
+            var doc = System.Text.Json.JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            return new GoogleJsonWebSignature.Payload
+            {
+                Subject = root.GetProperty("sub").GetString(),
+                Email = root.GetProperty("email").GetString(),
+                Name = root.TryGetProperty("name", out var n) ? n.GetString() : null,
+                Picture = root.TryGetProperty("picture", out var p) ? p.GetString() : null,
+            };
+        }
     }
 
     /// <summary>

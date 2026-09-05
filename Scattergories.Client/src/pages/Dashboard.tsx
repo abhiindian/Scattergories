@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../api/apiClient';
 import { useAuth } from '../context/AuthContext';
 import { useGameStore } from '../state/gameStore';
+import { useAuthStore } from '../state/authStore';
 
 /**
  * Home page - redesigned with Carbon Design System.
@@ -11,8 +12,10 @@ import { useGameStore } from '../state/gameStore';
  */
 export function Dashboard() {
   const navigate = useNavigate();
-  const { handleGoogleLogin, isAuthenticated } = useAuth();
+  const { handleGoogleLogin, isAuthenticated, user } = useAuth();
   const { playerName, setPlayerName } = useGameStore();
+  const { updateUser } = useAuthStore();
+  const displayPlayerName = playerName || user?.name;
   const [activeTab, setActiveTab] = useState<'join' | 'create'>('join');
   const [pinCode, setPinCode] = useState<string[]>(['', '', '', '', '']);
   const [error, setError] = useState('');
@@ -25,7 +28,7 @@ export function Dashboard() {
       navigate('/login');
       return;
     }
-    if (!playerName.trim()) {
+    if (!displayPlayerName?.trim()) {
       setError('Enter your name first');
       return;
     }
@@ -48,7 +51,7 @@ export function Dashboard() {
       return;
     }
     const code = pinCode.join('');
-    if (!playerName.trim()) {
+    if (!displayPlayerName?.trim()) {
       setError('Enter your name first');
       return;
     }
@@ -59,7 +62,7 @@ export function Dashboard() {
     setLoading(true);
     setError('');
     try {
-      const result = await apiClient.joinGameAuth(code.toUpperCase(), playerName);
+      const result = await apiClient.joinGameAuth(code.toUpperCase(), displayPlayerName || '');
       localStorage.setItem('playerId', result.playerId);
       navigate(`/lobby/${code.toUpperCase()}`);
     } catch (e) {
@@ -151,19 +154,23 @@ export function Dashboard() {
               <div className="mt-3 pt-3 border-t border-border-subtle flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="relative w-9 h-9 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-headline-sm text-sm font-bold flex-shrink-0 shadow-sm">
-                    <span>{getInitials(playerName || 'G')}</span>
+                    <span>{getInitials(displayPlayerName || 'G')}</span>
                     <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-carbon-green rounded-full shadow-[0_0_0_2px_#ffffff]"></span>
                   </div>
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="font-headline-sm text-[14px] text-text-primary truncate" id="playerNicknameDisplay">
-                        {playerName}
+                        {displayPlayerName}
                       </span>
                       <button
                         onClick={() => {
-                          const next = prompt('Enter your player nickname:', playerName);
+                          const next = prompt('Enter your player nickname:', displayPlayerName);
                           if (next && next.trim()) {
-                            setPlayerName(next.trim());
+                            if (isAuthenticated) {
+                              updateUser(next.trim());
+                            } else {
+                              setPlayerName(next.trim());
+                            }
                           }
                         }}
                         className="p-1 rounded-full text-on-surface-variant hover:text-primary transition-colors"
@@ -271,7 +278,7 @@ export function Dashboard() {
                   {/* Join CTA */}
                   <button
                     onClick={handleJoin}
-                    disabled={loading || pinCode.some(c => !c) || !playerName.trim()}
+                    disabled={loading || pinCode.some(c => !c) || !displayPlayerName?.trim()}
                     className="w-full h-12 md:h-14 rounded-lg bg-primary text-on-primary font-headline-sm text-[14px] md:text-[16px] font-semibold flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(15,98,254,0.3)] active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
                     type="button"
                   >
@@ -372,7 +379,7 @@ export function Dashboard() {
                   {/* Create CTA */}
                   <button
                     onClick={handleCreate}
-                    disabled={loading || !playerName.trim()}
+                    disabled={loading || !displayPlayerName?.trim()}
                     className="w-full h-12 md:h-14 rounded-lg bg-primary-container text-white font-headline-sm text-[14px] md:text-[16px] font-semibold flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(15,98,254,0.3)] active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
                     type="button"
                   >
