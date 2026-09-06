@@ -37,7 +37,7 @@ export function Lobby() {
     fetchGame();
     
     // Connect to SignalR for real-time updates
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('authToken');
     const playerId = localStorage.getItem('playerId');
     if (code && playerName) {
       hubConnection.start(code, playerId || undefined, token || undefined)
