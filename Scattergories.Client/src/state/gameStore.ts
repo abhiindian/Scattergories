@@ -7,6 +7,7 @@ interface PlayerState {
   gameCode: string | null;
   game: GameDto | null;
   hubConnected: boolean;
+  onlinePlayerIds: string[];
   roundTimer: number;
   roundTimerTotal: number;
   isTimerActive: boolean;
@@ -17,6 +18,7 @@ interface GameStore extends PlayerState {
   joinGame: (code: string, playerName: string) => void;
   setGame: (game: GameDto) => void;
   setHubConnected: (connected: boolean) => void;
+  setOnlinePlayerIds: (ids: string[]) => void;
   setRoundTimer: (seconds: number, total: number, active: boolean) => void;
   reset: () => void;
 }
@@ -45,6 +47,7 @@ export const useGameStore = create<GameStore>((set) => ({
   gameCode: null,
   game: initialGame,
   hubConnected: false,
+  onlinePlayerIds: [],
   roundTimer: 0,
   roundTimerTotal: 0,
   isTimerActive: false,
@@ -62,6 +65,8 @@ export const useGameStore = create<GameStore>((set) => ({
 
   setHubConnected: (connected) => set({ hubConnected: connected }),
 
+  setOnlinePlayerIds: (ids) => set({ onlinePlayerIds: ids }),
+
   setRoundTimer: (seconds, total, active) =>
     set({ roundTimer: seconds, roundTimerTotal: total, isTimerActive: active }),
 
@@ -72,6 +77,7 @@ export const useGameStore = create<GameStore>((set) => ({
       gameCode: null,
       game: initialGame,
       hubConnected: false,
+      onlinePlayerIds: [],
       roundTimer: 0,
       roundTimerTotal: 0,
       isTimerActive: false,

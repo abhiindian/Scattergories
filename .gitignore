@@ -27,7 +27,7 @@ node_modules/
 dist/
 dist-ssr/
 *.local
-
+.nuget
 ## Editor
 .vs/
 .vscode/
@@ -46,3 +46,4 @@ build.log
 .gitignore
 deviceid
 *.db-shm
+*.db-wal

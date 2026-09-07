@@ -5,6 +5,7 @@ import { useGameStore } from '../state/gameStore';
 import { hubConnection } from '../api/hubConnection';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ErrorState } from '../components/common/ErrorState';
+import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import type { PlayerDto, TeamDto } from '../api/types';
 
@@ -16,22 +17,28 @@ import type { PlayerDto, TeamDto } from '../api/types';
 export function Lobby() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const { playerName, game, joinGame, setGame } = useGameStore();
+  const { user } = useAuth();
+  const { playerName, game, onlinePlayerIds, joinGame, setGame, setOnlinePlayerIds, setPlayerName } = useGameStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(false);
 
+  const activePlayerName = playerName || user?.name || '';
+
   const fetchGame = useCallback(async () => {
     try {
+      joinGame(code!, activePlayerName);
+      if (!playerName && activePlayerName) {
+         setPlayerName(activePlayerName);
+      }
       const data = await apiClient.getGame(code!);
       setGame(data);
-      joinGame(code!, playerName);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load game');
     } finally {
       setLoading(false);
     }
-  }, [code, playerName, setGame, joinGame]);
+  }, [code, activePlayerName, playerName, setGame, joinGame, setPlayerName]);
 
   useEffect(() => {
     fetchGame();
@@ -39,12 +46,13 @@ export function Lobby() {
     // Connect to SignalR for real-time updates
     const token = localStorage.getItem('authToken');
     const playerId = localStorage.getItem('playerId');
-    if (code && playerName) {
+    if (code) {
       hubConnection.start(code, playerId || undefined, token || undefined)
         .catch(console.error);
         
-      hubConnection.onGameUpdated((state) => {
+      hubConnection.onGameUpdated((state, onlineIds) => {
         setGame(state);
+        setOnlinePlayerIds(onlineIds ?? []);
       });
       
       hubConnection.onRoundStarted(() => {
@@ -56,7 +64,7 @@ export function Lobby() {
       // We don't stop the connection here because GamePage needs it, 
       // but we could if we wanted to be strict about cleanup.
     };
-  }, [fetchGame, code, playerName, navigate, setGame]);
+  }, [fetchGame, code, activePlayerName, navigate, setGame]);
 
   const handleStart = async () => {
     if (starting) return;
@@ -95,8 +103,9 @@ export function Lobby() {
     }
   };
 
-  const isHost = game?.players?.find(p => p.name === playerName)?.isHost || false;
+  const isHost = game?.players?.find(p => p.name === activePlayerName)?.isHost || false;
   const playerCount = game?.players.length || 0;
+  const onlineCount = onlinePlayerIds.length;
   const maxSlots = 8;
 
   const getTeamForPlayer = (player: PlayerDto): TeamDto | undefined => {
@@ -186,8 +195,10 @@ export function Lobby() {
               </div>
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-headline-sm text-[14px] md:text-[16px] text-on-surface truncate">{playerName} (You)</span>
-                  <span className="px-1.5 py-0.5 rounded bg-carbon-amber text-on-surface font-label-caps text-[10px] uppercase font-bold">HOST</span>
+                  <span className="font-headline-sm text-[14px] md:text-[16px] text-on-surface truncate">{activePlayerName} (You)</span>
+                  {isHost && (
+                    <span className="px-1.5 py-0.5 rounded bg-carbon-amber text-on-surface font-label-caps text-[10px] uppercase font-bold">HOST</span>
+                  )}
                 </div>
                 <span className="font-label-sm text-[12px] md:text-[13px] text-on-surface-variant truncate">Waiting for players to ready up</span>
               </div>
@@ -205,23 +216,24 @@ export function Lobby() {
                 <span className="material-symbols-outlined text-primary text-[20px] md:text-[24px]">person_check</span>
                 <h2 className="font-headline-sm text-[14px] md:text-[18px] text-on-surface font-bold">Player Roster</h2>
               </div>
-              <span className="font-label-caps text-[10px] md:text-[12px] text-on-surface-variant font-semibold">{playerCount} CONNECTED</span>
+              <span className="font-label-caps text-[10px] md:text-[12px] text-on-surface-variant font-semibold">{onlineCount} CONNECTED</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2.5 md:gap-3">
               {/* Player List */}
               {game?.players.map((player) => {
                 const team = getTeamForPlayer(player);
-                const isCurrentPlayer = player.name === playerName;
+                const isCurrentPlayer = player.name === activePlayerName;
+                const isOnline = onlinePlayerIds.includes(player.id);
                 
                 return (
-                  <div key={player.id} className="flex items-center justify-between p-3 md:p-4 rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-shadow">
+                  <div key={player.id} className={`flex items-center justify-between p-3 md:p-4 rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-shadow ${!isOnline ? 'opacity-60' : ''}`}>
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="relative flex-shrink-0">
                         <div className="w-12 md:w-14 h-12 md:h-14 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-headline-sm text-[14px] md:text-[16px] font-bold">
                           {player.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                         </div>
-                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 md:w-4 md:h-4 rounded-full bg-carbon-green border-2 border-surface-container-lowest"></span>
+                        <span className={`absolute bottom-0 right-0 w-3.5 h-3.5 md:w-4 md:h-4 rounded-full border-2 border-surface-container-lowest ${isOnline ? 'bg-carbon-green' : 'bg-on-surface-variant/40'}`}></span>
                       </div>
                       <div className="flex flex-col min-w-0">
                         <div className="flex items-center gap-1.5">
@@ -231,7 +243,7 @@ export function Lobby() {
                           )}
                         </div>
                         <span className="font-label-sm text-[12px] md:text-[13px] text-on-surface-variant">
-                          {player.isHost ? 'Match Leader' : `Score: ${player.totalScore || 0} pts`}
+                          {player.isHost ? 'Match Leader' : isOnline ? `Score: ${player.totalScore || 0} pts` : 'Offline'}
                         </span>
                       </div>
                     </div>
@@ -241,7 +253,11 @@ export function Lobby() {
                           {team.name?.toUpperCase()}
                         </span>
                       )}
-                      <span className="material-symbols-outlined text-carbon-green text-[20px] md:text-[24px]">check_circle</span>
+                      {isOnline ? (
+                        <span className="material-symbols-outlined text-carbon-green text-[20px] md:text-[24px]">check_circle</span>
+                      ) : (
+                        <span className="material-symbols-outlined text-on-surface-variant/40 text-[20px] md:text-[24px]">cloud_off</span>
+                      )}
                     </div>
                   </div>
                 );

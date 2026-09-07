@@ -8,7 +8,7 @@ import type {
 const HUB_URL = '/hubs/game';
 
 // Typed callbacks
-type GameUpdatedHandler = (state: GameState) => void;
+type GameUpdatedHandler = (state: GameState, onlinePlayerIds: string[]) => void;
 type RoundStartedHandler = (data: { letter: string; timerSeconds: number; categories: CategoryDto[] }) => void;
 type TimerTickHandler = (data: { remaining: number; total: number }) => void;
 type TimeUpHandler = () => void;
@@ -39,8 +39,8 @@ export const hubConnection = {
     const conn = builder; // capture for callbacks within start
 
     // --- Event handlers ---
-    conn.on('LobbyUpdated', (state: GameState) => {
-      _handlers.onGameUpdated!(state);
+    conn.on('LobbyUpdated', (state: GameState, onlinePlayerIds: string[]) => {
+      _handlers.onGameUpdated!(state, onlinePlayerIds ?? []);
     });
 
     conn.on('RoundStarted', (data: { letter: string; timerSeconds: number; categories: CategoryDto[] }) => {

@@ -123,6 +123,14 @@ public class GamesController : ControllerBase
         var game = await GetGameEntity(code);
         if (game == null) return NotFound();
 
+        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var player = game.Players.FirstOrDefault(p => p.UserId == userId);
+        if (player == null || !player.IsHost)
+            return Forbid();
+
         var command = new StartGameCommand(game.Id);
         await _mediator.Send(command);
         return NoContent();

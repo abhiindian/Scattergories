@@ -137,7 +137,6 @@ public class AuthController : ControllerBase
 
         // Create new player
         var playerName = request.PlayerName ?? user.DisplayName;
-        var player = new Domain.Entities.Player(playerName, isHost: false)
         var isFirstPlayer = game.Players.Count == 0;
         var player = new Domain.Entities.Player(playerName, isHost: isFirstPlayer)
         {

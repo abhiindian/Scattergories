@@ -69,7 +69,8 @@ builder.Services.AddAuthentication("JwtBearer")
             OnMessageReceived = context =>
             {
                 var accessToken = context.Request.Query["authToken"];
-                var accessToken = context.Request.Query["access_token"];
+                if (string.IsNullOrEmpty(accessToken))
+                    accessToken = context.Request.Query["access_token"];
                 if (!string.IsNullOrEmpty(accessToken))
                     context.Token = accessToken.ToString();
                 return Task.CompletedTask;

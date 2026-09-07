@@ -23,7 +23,9 @@ public class GameHub : Hub
 {
     // Track connection-to-game mappings for disconnect detection
     private static readonly ConcurrentDictionary<string, string> _connectionToGame = new();
-    private static readonly ConcurrentDictionary<string, HashSet<string>> _gameConnections = new();
+    // Track connection-to-player mappings for online presence
+    private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _gameConnections = new();
+    private static readonly ConcurrentDictionary<string, Guid> _connectionToPlayer = new();
 
     private readonly IMediator _mediator;
     private readonly ICurrentPlayer _currentPlayer;
@@ -44,8 +46,6 @@ public class GameHub : Hub
     {
         if (string.IsNullOrWhiteSpace(gameCode))
             throw new HubException("Game code is required.");
-        if (string.IsNullOrWhiteSpace(playerId))
-            throw new HubException("Player ID is required.");
         if (gameCode.Length > 10)
             throw new HubException("Game code is too long.");
 
@@ -54,16 +54,46 @@ public class GameHub : Hub
         if (game == null)
             throw new HubException("Game not found.");
 
-        // Verify the provided playerId is registered in this game
-        var isRegistered = await _dbContext.Players
-            .AnyAsync(p => p.GameId == game.Id && p.Id.ToString() == playerId);
-        if (!isRegistered)
-            throw new HubException("Player is not registered in this game.");
-
-        _connectionToGame[Context.ConnectionId] = gameCode;
-        _gameConnections.GetOrAdd(gameCode.ToUpper(), _ => new HashSet<string>()).Add(Context.ConnectionId);
+        _connectionToGame[Context.ConnectionId] = gameCode.ToUpper();
         await Groups.AddToGroupAsync(Context.ConnectionId, gameCode.ToUpper());
-        await Clients.Group(gameCode.ToUpper()).SendAsync("LobbyUpdated", await GetGameDto(gameCode.ToUpper()));
+
+        // Verify the provided playerId is registered in this game
+        var httpContext = Context.GetHttpContext();
+        var isAuth = httpContext?.User?.Identity?.IsAuthenticated == true;
+        
+        Guid? resolvedPlayerId = null;
+
+        if (!string.IsNullOrWhiteSpace(playerId) && Guid.TryParse(playerId, out var playerGuid))
+        {
+            resolvedPlayerId = playerGuid;
+        }
+        else if (isAuth)
+        {
+            var userIdStr = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (Guid.TryParse(userIdStr, out var userId))
+            {
+                var player = await _dbContext.Players.FirstOrDefaultAsync(p => p.GameId == game.Id && p.UserId == userId);
+                if (player != null)
+                {
+                    resolvedPlayerId = player.Id;
+                }
+            }
+        }
+
+        if (resolvedPlayerId.HasValue)
+        {
+            var isRegistered = await _dbContext.Players
+                .AnyAsync(p => p.GameId == game.Id && p.Id == resolvedPlayerId.Value);
+            
+            if (isRegistered)
+            {
+                _gameConnections.GetOrAdd(gameCode.ToUpper(), _ => new ConcurrentDictionary<string, byte>()).TryAdd(Context.ConnectionId, 0);
+                _connectionToPlayer[Context.ConnectionId] = resolvedPlayerId.Value;
+            }
+        }
+
+        var onlinePlayerIds = GetOnlinePlayerIds(gameCode.ToUpper());
+        await Clients.Group(gameCode.ToUpper()).SendAsync("LobbyUpdated", await GetGameDto(gameCode.ToUpper()), onlinePlayerIds);
     }
 
     /// <summary>
@@ -186,7 +216,7 @@ public class GameHub : Hub
             NextRoundAvailable = result.RoundNumber < 9
         });
 
-        await Clients.Group(gameCode.ToUpper()).SendAsync("LobbyUpdated", await GetGameDto(gameCode.ToUpper()));
+        await Clients.Group(gameCode.ToUpper()).SendAsync("LobbyUpdated", await GetGameDto(gameCode.ToUpper()), GetOnlinePlayerIds(gameCode.ToUpper()));
     }
 
     /// <summary>
@@ -230,7 +260,7 @@ public class GameHub : Hub
             Letter = result.Letter
         });
 
-        await Clients.Group(gameCode.ToUpper()).SendAsync("LobbyUpdated", await GetGameDto(gameCode.ToUpper()));
+        await Clients.Group(gameCode.ToUpper()).SendAsync("LobbyUpdated", await GetGameDto(gameCode.ToUpper()), GetOnlinePlayerIds(gameCode.ToUpper()));
     }
 
     /// <summary>
@@ -239,22 +269,24 @@ public class GameHub : Hub
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         // Remove connection tracking
+        _connectionToPlayer.TryRemove(Context.ConnectionId, out _);
+
         if (_connectionToGame.TryRemove(Context.ConnectionId, out var gameCode))
         {
-            if (!string.IsNullOrEmpty(gameCode) && _gameConnections.TryGetValue(gameCode, out var connections))
+            if (!string.IsNullOrEmpty(gameCode) && _gameConnections.TryGetValue(gameCode.ToUpper(), out var connections))
             {
-                connections.Remove(Context.ConnectionId);
-                if (connections.Count == 0)
+                connections.TryRemove(Context.ConnectionId, out _);
+                if (connections.IsEmpty)
                 {
-                    _gameConnections.TryRemove(gameCode, out _);
+                    _gameConnections.TryRemove(gameCode.ToUpper(), out _);
                 }
             }
 
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, gameCode);
-            await Clients.Group(gameCode).SendAsync("PlayerLeft", new
-            {
-                ConnectionId = Context.ConnectionId
-            });
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, gameCode.ToUpper());
+
+            // Broadcast updated lobby with current online players so UI refreshes
+            var onlinePlayerIds = GetOnlinePlayerIds(gameCode.ToUpper());
+            await Clients.Group(gameCode.ToUpper()).SendAsync("LobbyUpdated", await GetGameDto(gameCode.ToUpper()), onlinePlayerIds);
         }
         await base.OnDisconnectedAsync(exception);
     }
@@ -291,6 +323,22 @@ public class GameHub : Hub
     {
         _connectionToGame.TryGetValue(Context.ConnectionId, out var gameCode);
         return gameCode ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Returns the list of player IDs that currently have an active SignalR connection
+    /// in the specified game room.
+    /// </summary>
+    private static List<string> GetOnlinePlayerIds(string gameCode)
+    {
+        if (!_gameConnections.TryGetValue(gameCode.ToUpper(), out var connectionIds))
+            return new List<string>();
+
+        return connectionIds.Keys
+            .Where(connId => _connectionToPlayer.ContainsKey(connId))
+            .Select(connId => _connectionToPlayer[connId].ToString())
+            .Distinct()
+            .ToList();
     }
 }
 

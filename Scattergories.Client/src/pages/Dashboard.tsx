@@ -39,6 +39,7 @@ export function Dashboard() {
       const code = await apiClient.createGame({ timerSeconds });
       const joinResult = await apiClient.joinGameAuth(code, displayPlayerName || '');
       localStorage.setItem('playerId', joinResult.playerId);
+      useGameStore.getState().setPlayerName(displayPlayerName || '');
       navigate(`/lobby/${code}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to create game');
@@ -66,6 +67,7 @@ export function Dashboard() {
     try {
       const result = await apiClient.joinGameAuth(code.toUpperCase(), displayPlayerName || '');
       localStorage.setItem('playerId', result.playerId);
+      useGameStore.getState().setPlayerName(displayPlayerName || '');
       navigate(`/lobby/${code.toUpperCase()}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to join game');

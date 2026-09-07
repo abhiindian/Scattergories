@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiClient } from '../api/apiClient';
 import { toast } from 'sonner';
+import { useAuth } from '../context/AuthContext';
+import { useGameStore } from '../state/gameStore';
 
 /**
  * HostRoomConfig page - redesigned with Carbon Design System.
@@ -73,6 +75,8 @@ export function HostRoomConfig() {
   const summaryText = `${config.totalRounds} Rounds • ${config.timerPerRound}s • ${config.categoryDeck} • Max 8 Players`;
   const estimatedMinutes = Math.round((config.totalRounds * (config.timerPerRound + 20)) / 60);
 
+  const { user } = useAuth();
+
   const updateConfig = <K extends keyof GameConfig>(key: K, value: GameConfig[K]) => {
     setConfig(prev => ({ ...prev, [key]: value }));
   };
@@ -95,6 +99,9 @@ export function HostRoomConfig() {
         navigate(`/lobby/${editCode}`);
       } else {
         const gameCode = await apiClient.createGame(data);
+        const joinResult = await apiClient.joinGameAuth(gameCode, user?.name || '');
+        localStorage.setItem('playerId', joinResult.playerId);
+        useGameStore.getState().setPlayerName(user?.name || '');
         toast.success('Room created successfully!');
         navigate(`/lobby/${gameCode}`);
       }
