@@ -58,7 +58,7 @@ public class ScoringService : IScoringService
             scoredAnswers.Add(new ScoredAnswer(
                 answer.Id,
                 answer.PlayerId,
-                answer.Player.Name,
+                answer.Player?.Name ?? string.Empty,
                 answer.Player?.TeamId,
                 answer.Player?.Team?.Name,
                 answer.CategoryId,

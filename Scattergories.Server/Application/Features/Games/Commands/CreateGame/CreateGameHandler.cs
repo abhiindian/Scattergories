@@ -28,7 +28,8 @@ public class CreateGameHandler : IRequestHandler<CreateGameCommand, string>
             PointsPerAnswer = request.PointsPerAnswer,
             AllowPlurals = request.AllowPlurals,
             AllowProperNouns = request.AllowProperNouns,
-            AllowOffensiveWords = request.AllowOffensiveWords
+            AllowOffensiveWords = request.AllowOffensiveWords,
+            Categories = _context.Categories.ToList()
         };
 
         _context.Games.Add(game);

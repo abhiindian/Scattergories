@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Scattergories.Application.Common.Interfaces;
 using Scattergories.Application.Features.Games.Commands.BeginRound;
@@ -31,19 +32,22 @@ public class GamesController : ControllerBase
     private readonly ILogger<GamesController> _logger;
     private readonly ILetterService _letterService;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly Microsoft.AspNetCore.SignalR.IHubContext<Scattergories.Infrastructure.SignalR.GameHub> _hubContext;
 
     public GamesController(
         IMediator mediator,
         ScattergoriesDbContext context,
         ILogger<GamesController> logger,
         ILetterService letterService,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        Microsoft.AspNetCore.SignalR.IHubContext<Scattergories.Infrastructure.SignalR.GameHub> hubContext)
     {
         _mediator = mediator;
         _context = context;
         _logger = logger;
         _letterService = letterService;
         _httpContextAccessor = httpContextAccessor;
+        _hubContext = hubContext;
     }
 
     /// <summary>
@@ -133,6 +137,38 @@ public class GamesController : ControllerBase
 
         var command = new StartGameCommand(game.Id);
         await _mediator.Send(command);
+
+        // Immediately start the first round and broadcast so clients transition to the game screen
+        var beginResult = await _mediator.Send(new BeginRoundCommand(game.Id));
+
+        await _hubContext.Clients.Group(code.ToUpper()).SendAsync("RoundStarted", new
+        {
+            RoundNumber = beginResult.RoundNumber,
+            Letter = beginResult.Letter,
+            TimerSeconds = beginResult.TimerSeconds,
+            Categories = beginResult.Categories
+        });
+
+        // Start timer logic equivalent to GameHub.BeginNextRound
+        _ = Task.Run(async () =>
+        {
+            for (var remaining = beginResult.TimerSeconds; remaining > 0; remaining -= 5)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5));
+                await _hubContext.Clients.Group(code.ToUpper()).SendAsync("TimerTick", new
+                {
+                    RemainingSeconds = Math.Max(remaining, 0),
+                    TotalSeconds = beginResult.TimerSeconds
+                });
+            }
+
+            await _hubContext.Clients.Group(code.ToUpper()).SendAsync("TimeUp", new
+            {
+                RoundNumber = beginResult.RoundNumber,
+                Letter = beginResult.Letter
+            });
+        });
+
         return NoContent();
     }
 

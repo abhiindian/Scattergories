@@ -68,6 +68,7 @@ public class StartGameHandler : IRequestHandler<StartGameCommand>
             }
 
             game.Rounds.Add(round);
+            _context.Rounds.Add(round);
         }
 
         await _context.SaveChangesAsync(cancellationToken);
