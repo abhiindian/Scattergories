@@ -63,7 +63,8 @@ public class GamesController : ControllerBase
             request.PointsPerAnswer,
             request.AllowPlurals,
             request.AllowProperNouns,
-            request.AllowOffensiveWords
+            request.AllowOffensiveWords,
+            request.Categories
         );
 
         var code = await _mediator.Send(command);
@@ -85,7 +86,8 @@ public class GamesController : ControllerBase
             request.PointsPerAnswer,
             request.AllowPlurals,
             request.AllowProperNouns,
-            request.AllowOffensiveWords
+            request.AllowOffensiveWords,
+            request.Categories
         );
 
         await _mediator.Send(command);
@@ -299,7 +301,8 @@ public record CreateGameRequest(
     int PointsPerAnswer = 10,
     bool AllowPlurals = false,
     bool AllowProperNouns = false,
-    bool AllowOffensiveWords = false
+    bool AllowOffensiveWords = false,
+    string[]? Categories = null
 );
 
 public record JoinGameRequest(
@@ -322,5 +325,6 @@ public record UpdateGameConfigRequest(
     int PointsPerAnswer,
     bool AllowPlurals,
     bool AllowProperNouns,
-    bool AllowOffensiveWords
+    bool AllowOffensiveWords,
+    string[]? Categories
 );

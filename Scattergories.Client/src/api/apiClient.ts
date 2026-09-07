@@ -37,6 +37,7 @@ export const apiClient = {
     allowPlurals?: boolean;
     allowProperNouns?: boolean;
     allowOffensiveWords?: boolean;
+    categories?: string[];
   }) => {
     const res = await request<{ code: string }>('/games', { method: 'POST', body: JSON.stringify(data) });
     return res.code;
@@ -49,6 +50,7 @@ export const apiClient = {
     allowPlurals?: boolean;
     allowProperNouns?: boolean;
     allowOffensiveWords?: boolean;
+    categories?: string[];
   }) =>
     request<void>(`/games/${code}/config`, { method: 'PUT', body: JSON.stringify(data) }),
 

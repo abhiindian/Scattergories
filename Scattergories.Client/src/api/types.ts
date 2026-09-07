@@ -9,6 +9,7 @@ export interface GameState {
   teams: TeamDto[];
   settings: GameSettingsDto;
   rounds: RoundDto[];
+  categories: CategoryDto[];
 }
 
 export interface RoundDto {

@@ -12,7 +12,8 @@ public record GetGameDto(
     RoundDto? CurrentRound,
     PlayerDto[] Players,
     TeamDto[] Teams,
-    GameSettingsDto Settings
+    GameSettingsDto Settings,
+    CategoryDto[] Categories
 );
 
 public record RoundDto(

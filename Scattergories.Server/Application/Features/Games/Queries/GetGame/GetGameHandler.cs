@@ -23,13 +23,16 @@ public class GetGameHandler : IRequestHandler<GetGameQuery, GetGameDto>
         var game = await _context.Games
             .Include(g => g.Players)
             .Include(g => g.Teams)
+            .Include(g => g.Categories)
             .Include(g => g.Rounds)
                 .ThenInclude(r => r.RoundCategories)
                 .ThenInclude(rc => rc.Category)
+            .Include(g => g.Categories)
             .Include(g => g.Rounds)
                 .ThenInclude(r => r.Answers)
                 .ThenInclude(a => a.Player)
                 .ThenInclude(p => p.Team)
+            .Include(g => g.Categories)
             .Include(g => g.Rounds)
                 .ThenInclude(r => r.Answers)
                 .ThenInclude(a => a.Category)
@@ -83,7 +86,8 @@ public class GetGameHandler : IRequestHandler<GetGameQuery, GetGameDto>
             roundDto,
             players,
             teams,
-            settings
+            settings,
+            game.Categories.OrderBy(c => c.DisplayOrder).Select(c => new CategoryDto(c.Id, c.Name, c.DisplayOrder)).ToArray()
         );
     }
 }

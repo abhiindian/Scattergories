@@ -10,7 +10,7 @@ const HUB_URL = '/hubs/game';
 // Typed callbacks
 type GameUpdatedHandler = (state: GameState, onlinePlayerIds: string[]) => void;
 type RoundStartedHandler = (data: { letter: string; timerSeconds: number; categories: CategoryDto[] }) => void;
-type TimerTickHandler = (data: { remaining: number; total: number }) => void;
+type TimerTickHandler = (data: { remainingSeconds: number; totalSeconds: number }) => void;
 type TimeUpHandler = () => void;
 type AnswersRevealedHandler = (data: { roundCategories: CategoryDto[]; scoredAnswers: ScoredAnswerDto[] }) => void;
 type RoundCompleteHandler = () => void;
@@ -47,7 +47,7 @@ export const hubConnection = {
       _handlers.onRoundStarted!(data);
     });
 
-    conn.on('TimerTick', (data: { remaining: number; total: number }) => {
+    conn.on('TimerTick', (data: { remainingSeconds: number; totalSeconds: number }) => {
       _handlers.onTimerTick!(data);
     });
 

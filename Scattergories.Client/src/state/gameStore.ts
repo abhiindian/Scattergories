@@ -39,6 +39,7 @@ const initialGame: GameDto = {
     allowOffensiveWords: false,
   },
   rounds: [],
+  categories: [],
 };
 
 export const useGameStore = create<GameStore>((set) => ({
