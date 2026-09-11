@@ -60,8 +60,8 @@ var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "scattergories-client
 
 builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddAuthentication("JwtBearer")
-    .AddJwtBearer("JwtBearer", options =>
+builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
     {
         // Allow JWT in query string for SignalR connections
         options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents

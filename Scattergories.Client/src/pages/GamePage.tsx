@@ -183,8 +183,6 @@ export function GamePage() {
           .filter(([, text]) => text.trim())
           .map(([categoryId, text]) => ({ categoryId, text: text.trim() }));
 
-        if (answerList.length > 0) {
-          await hubConnection.submitAnswers(code!, answerList);
         const roundId = game?.currentRound?.id;
         
         if (roundId && answerList.length > 0) {

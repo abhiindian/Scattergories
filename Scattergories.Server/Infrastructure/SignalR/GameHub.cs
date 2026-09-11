@@ -69,7 +69,7 @@ public class GameHub : Hub
         }
         else if (isAuth)
         {
-            var userIdStr = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userIdStr = httpContext.User.FindFirst("sub")?.Value ?? httpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? httpContext?.User?.FindFirst("nameid")?.Value;
             if (Guid.TryParse(userIdStr, out var userId))
             {
                 var player = await _dbContext.Players.FirstOrDefaultAsync(p => p.GameId == game.Id && p.UserId == userId);
@@ -129,7 +129,7 @@ public class GameHub : Hub
         if (isAuth)
         {
             // JWT-authenticated: resolve player from DB
-            var userIdClaim = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userIdClaim = httpContext.User.FindFirst("sub")?.Value ?? httpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? httpContext?.User?.FindFirst("nameid")?.Value;
             var name = httpContext.User.FindFirst(ClaimTypes.Name)?.Value;
             playerName = name;
 
@@ -296,7 +296,7 @@ public class GameHub : Hub
     /// </summary>
     private async Task<bool> IsPlayerHost(HttpContext? httpContext, string gameCode)
     {
-        var userIdClaim = httpContext?.User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+        var userIdClaim = httpContext?.User?.Claims.FirstOrDefault(c => c.Type == "sub")?.Value ?? httpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? httpContext?.User?.FindFirst("nameid")?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
             return false;
 

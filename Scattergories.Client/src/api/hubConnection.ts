@@ -91,11 +91,8 @@ export const hubConnection = {
   },
 
   async submitAnswers(
-    gameCode: string,
-    answers: Array<{ categoryId: string; text: string }>,
     request: { roundId: string; answers: Array<{ categoryId: string; text: string }> }
   ): Promise<void> {
-    await connection?.invoke('SubmitAnswers', gameCode, answers);
     await connection?.invoke('SubmitAnswers', request);
   },
 

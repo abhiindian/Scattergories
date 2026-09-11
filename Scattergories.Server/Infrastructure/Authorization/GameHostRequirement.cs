@@ -34,7 +34,7 @@ public class GameHostRequirementHandler : AuthorizationHandler<GameHostRequireme
             return;
         }
 
-        var userIdClaim = httpContext.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+        var userIdClaim = httpContext.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier || c.Type == "nameid" || c.Type == "sub")?.Value;
         var code = httpContext.Request.Query["code"];
 
         if (string.IsNullOrEmpty(userIdClaim) || string.IsNullOrEmpty(code))

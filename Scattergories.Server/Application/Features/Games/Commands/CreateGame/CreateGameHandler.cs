@@ -32,6 +32,33 @@ public class CreateGameHandler : IRequestHandler<CreateGameCommand, string>
             Categories = _context.Categories.ToList()
         };
 
+        if (request.Categories != null && request.Categories.Any())
+        {
+            int order = 1;
+            foreach (var catName in request.Categories)
+            {
+                var trimmed = catName.Trim();
+                if (string.IsNullOrWhiteSpace(trimmed)) continue;
+                
+                var existing = _context.Categories.FirstOrDefault(c => c.Name == trimmed);
+                if (existing != null)
+                {
+                    game.Categories.Add(existing);
+                }
+                else
+                {
+                    var newCat = new Category(trimmed, order);
+                    _context.Categories.Add(newCat);
+                    game.Categories.Add(newCat);
+                }
+                order++;
+            }
+        }
+        else
+        {
+            game.Categories = _context.Categories.ToList();
+        }
+
         _context.Games.Add(game);
         await _context.SaveChangesAsync(cancellationToken);
 

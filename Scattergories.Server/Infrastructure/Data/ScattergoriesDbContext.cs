@@ -50,6 +50,10 @@ public class ScattergoriesDbContext : DbContext, IApplicationDbContext
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Game>()
+            .HasMany(g => g.Categories)
+            .WithMany();
+
+        modelBuilder.Entity<Game>()
             .HasIndex(g => g.Code)
             .IsUnique();
 

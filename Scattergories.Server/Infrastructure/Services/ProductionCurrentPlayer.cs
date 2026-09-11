@@ -26,7 +26,7 @@ public class ProductionCurrentPlayer : ICurrentPlayer
             if (httpContext?.User?.Identity?.IsAuthenticated != true)
                 return null;
 
-            var userIdClaim = httpContext.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            var userIdClaim = httpContext.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier || c.Type == "nameid" || c.Type == "sub")?.Value;
             if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
                 return userId;
 
