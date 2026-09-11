@@ -12,7 +12,6 @@ public record UpdateGameConfigCommand(
     int PointsPerAnswer,
     bool AllowPlurals,
     bool AllowProperNouns,
-    bool AllowOffensiveWords
     bool AllowOffensiveWords,
     string[]? Categories = null
 ) : IRequest;

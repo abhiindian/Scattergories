@@ -11,7 +11,6 @@ public record CreateGameCommand(
     int PointsPerAnswer = 10,
     bool AllowPlurals = false,
     bool AllowProperNouns = false,
-    bool AllowOffensiveWords = false
     bool AllowOffensiveWords = false,
     string[]? Categories = null
 ) : IRequest<string>;  // Returns the game code

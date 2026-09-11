@@ -93,8 +93,10 @@ export const hubConnection = {
   async submitAnswers(
     gameCode: string,
     answers: Array<{ categoryId: string; text: string }>,
+    request: { roundId: string; answers: Array<{ categoryId: string; text: string }> }
   ): Promise<void> {
     await connection?.invoke('SubmitAnswers', gameCode, answers);
+    await connection?.invoke('SubmitAnswers', request);
   },
 
   async stop(): Promise<void> {
@@ -102,6 +104,14 @@ export const hubConnection = {
       try { await connection.stop(); } catch { /* ignore */ }
       connection = null;
     }
+  },
+
+  async revealAndScore(gameCode: string): Promise<void> {
+    await connection?.invoke('RevealAndScore', gameCode);
+  },
+
+  async beginNextRound(gameCode: string): Promise<void> {
+    await connection?.invoke('BeginNextRound', gameCode);
   },
 
   // --- Subscribe to events ---

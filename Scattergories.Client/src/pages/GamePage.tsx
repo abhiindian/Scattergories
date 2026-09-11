@@ -45,6 +45,9 @@ export function GamePage() {
         break;
       case 'Answering':
         setPhase('answering');
+          setTimeout(() => {
+            document.getElementById('submit-answers-btn')?.click();
+          }, 500);
         break;
       case 'Revealing':
         setPhase('revealing');
@@ -112,6 +115,21 @@ export function GamePage() {
 
         hubConnection.onTimeUp(() => {
           setPhase('answering');
+          setTimeout(() => {
+            document.getElementById('submit-answers-btn')?.click();
+          }, 500);
+          
+          const currentPlayer = useGameStore.getState().game?.players.find(p => p.id === useGameStore.getState().playerId);
+          if (currentPlayer?.isHost) {
+            setTimeout(async () => {
+              try {
+                await hubConnection.revealAndScore(code!);
+                await hubConnection.beginNextRound(code!);
+              } catch (e) {
+                console.error('Failed to auto-advance round', e);
+              }
+            }, 1500);
+          }
         });
 
         hubConnection.onAnswersRevealed((data: { roundCategories: CategoryDto[]; scoredAnswers: ScoredAnswerDto[] }) => {
@@ -167,7 +185,16 @@ export function GamePage() {
 
         if (answerList.length > 0) {
           await hubConnection.submitAnswers(code!, answerList);
+        const roundId = game?.currentRound?.id;
+        
+        if (roundId && answerList.length > 0) {
+          await hubConnection.submitAnswers({ roundId, answers: answerList });
+        } else if (roundId && answerList.length === 0) {
+          // Send a dummy answer or nothing if the backend requires it, 
+          // but if answerList is empty we can just skip submitting to avoid errors
+          // since the server throws if Answers array is empty.
         }
+        
         // Change phase or rely on host? Maybe show a success toast.
         toast.success('Answers submitted successfully!');
       } catch (e) {
@@ -326,6 +353,7 @@ export function GamePage() {
                   </div>
                 )}
 
+
               </div>
             );
           })}
@@ -341,6 +369,7 @@ export function GamePage() {
             </div>
             {/* Action Button */}
             <button
+              id="submit-answers-btn"
               onClick={handleSubmitAnswers}
               className="w-full md:w-auto h-12 md:h-14 md:px-8 rounded-lg md:rounded-xl bg-primary text-on-primary font-headline-sm text-[14px] md:text-[16px] flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-transform"
               type="button"
