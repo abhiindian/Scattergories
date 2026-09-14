@@ -31,6 +31,7 @@
 
 - **Real-time Multiplayer** — Up to 10 players per game with live updates via SignalR
 - **Google Authentication** — OAuth 2.0 Sign-In with JWT token management
+- **Persistent Accounts** — Players have accounts with game history, rankings, and saved preferences
 - **Guest Mode** — Play without an account by entering a name
 - **9 Rounds** — Random A-Z letters with no repeats within a game
 - **Team Play** — Auto-generated teams (Team A, B, C, ...) with combined scoring
@@ -85,7 +86,8 @@ The backend follows **Clean Architecture** with four distinct layers:
 
 ```
 Scattergories.Server/
-├── API/                    # Web API layer (entry point)
+├── Library/              # Shared libraries and utilities
+├── API/                  # Web API layer (entry point)
 │   ├── Controllers/        # REST API endpoints
 │   ├── Program.cs          # DI registration, middleware pipeline
 │   └── appsettings.json    # Configuration
@@ -160,11 +162,16 @@ Scattergories.Client/
 │   ├── context/                # React Context providers
 │   │   └── AuthContext.tsx     # Authentication context
 │   ├── pages/                  # Page components (route-level)
-│   │   ├── Home.tsx            # Landing page (create/join game)
+│   │   ├── LandingPage.tsx     # Public landing page (value prop, CTA)
 │   │   ├── Login.tsx           # Google Sign-In / Guest login
-│   │   ├── Lobby.tsx           # Pre-game lobby (players, settings)
+│   │   ├── Dashboard.tsx       # Player dashboard (active games, quick join)
+│   │   ├── HostRoomConfig.tsx  # Host room configuration (categories, settings)
+│   │   ├── Rules.tsx           # Game rules and how to play
+│   │   ├── Lobby.tsx           # Pre-game lobby (players, waiting)
 │   │   ├── GamePage.tsx        # Active game (timer → answering → revealing)
-│   │   └── Scoreboard.tsx      # Final standings
+│   │   ├── Scoreboard.tsx      # Final standings
+│   │   ├── Rankings.tsx        # Leaderboards and player rankings
+│   │   └── History.tsx         # Game history and past results
 │   ├── state/                  # Zustand stores
 │   │   ├── gameStore.ts        # Game state (players, rounds, timer)
 │   │   └── authStore.ts        # Authentication state (token, user)
@@ -181,9 +188,11 @@ Scattergories.Client/
 
 ### Setup
 
-1. **Host creates a game** — A unique 5-character game code is generated
-2. **Players join** — Using the game code (via link or manual entry)
-3. **First player becomes host** — Only the host can start the game
+1. **Navigate to Dashboard** — After logging in, view active games and quick-join options
+2. **Host a game** — Click "Host Room" to configure categories, settings, and generate a game code
+3. **Players join** — Using the game code (via link or manual entry)
+4. **First player becomes host** — Only the host can start the game
+5. **Custom categories** — Host can add, remove, or reorder categories before starting
 
 ### Gameplay
 
@@ -304,14 +313,19 @@ The application uses **SQLite** by default. The database file (`scattergories.db
 
 | File | Purpose |
 |------|---------|
-| `Scattergories.Client/src/App.tsx` | React Router configuration with auth guards |
+| `Scattergories.Client/src/App.tsx` | React Router with public + auth-guarded routes |
 | `Scattergories.Client/src/api/hubConnection.ts` | Typed SignalR client with event handlers |
 | `Scattergories.Client/src/api/apiClient.ts` | Fetch wrapper for REST API calls |
 | `Scattergories.Client/src/api/types.ts` | TypeScript interfaces matching backend DTOs |
+| `Scattergories.Client/src/api/hooks/` | Custom React hooks for API and SignalR |
 | `Scattergories.Client/src/state/gameStore.ts` | Zustand store for game state |
 | `Scattergories.Client/src/state/authStore.ts` | Zustand store for authentication |
 | `Scattergories.Client/src/context/AuthContext.tsx` | React Context for auth state and login methods |
+| `Scattergories.Client/src/pages/LandingPage.tsx` | Public landing page |
+| `Scattergories.Client/src/pages/Dashboard.tsx` | Player dashboard with active games |
 | `Scattergories.Client/src/pages/GamePage.tsx` | State-driven game page (timer → answering → revealing) |
+| `Scattergories.Client/src/pages/Rankings.tsx` | Player leaderboards |
+| `Scattergories.Client/src/pages/History.tsx` | Past game history |
 | `Scattergories.Client/vite.config.ts` | Vite config with API proxy (`/api`, `/hubs`) |
 
 ---
@@ -353,13 +367,15 @@ The application uses **SQLite** by default. The database file (`scattergories.db
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
 | POST | `/api/games` | Create a new game | No |
+| PUT | `/api/games/{code}/config` | Update game configuration (host only) | No |
 | POST | `/api/games/{code}/join` | Join an existing game | No |
 | GET | `/api/games/{code}` | Get current game state | No |
-| PUT | `/api/games/{code}/config` | Update game configuration (host only) | Yes |
 | POST | `/api/games/{code}/start` | Start the game (host only) | Yes |
-| POST | `/api/games/{code}/begin-round` | Begin a new round (host only) | Yes |
-| POST | `/api/games/{code}/reveal-and-score` | Reveal answers and calculate scores | Yes |
-| POST | `/api/games/{code}/end-game` | End the game and show final standings | Yes |
+| POST | `/api/games/{code}/answers` | Submit all answers for the round | Yes |
+| POST | `/api/games/{code}/reveal` | Reveal answers for the round | Yes |
+| POST | `/api/games/{code}/next-round` | Advance to next round | Yes |
+| POST | `/api/games/{code}/end` | End the game and show final standings | Yes |
+| GET | `/api/games/health` | Health check | No |
 
 **Create Game / Update Config Request:**
 ```json
@@ -369,7 +385,8 @@ The application uses **SQLite** by default. The database file (`scattergories.db
   "pointsPerAnswer": 10,
   "allowPlurals": false,
   "allowProperNouns": false,
-  "allowOffensiveWords": false
+  "allowOffensiveWords": false,
+  "categories": ["Name", "Place", "Animal", "Thing", "Food", "City", "Color", "Brand", "Occupation"]
 }
 ```
 
@@ -478,7 +495,7 @@ In production, `ProductionCurrentPlayer` resolves player identity from the authe
     "Issuer": "Scattergories",
     "Audience": "scattergories-client"
   }
-}
+}₹
 ```
 
 ### Environment Variables
@@ -737,14 +754,23 @@ ENTRYPOINT ["dotnet", "Scattergories.Server.dll"]
 
 ## License
 
-This project is open source and available under the [MIT License](LICENSE).
+This project is open source.
 
 ---
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+### Coding Standards
+
+- **C#**: `<Nullable>enable</Nullable>`, CQRS pattern (every action is a Command or Query), MediatR handlers
+- **TypeScript**: Strict mode, PascalCase components, camelCase hooks, kebab-case file names for pages
+- **Frontend**: Use existing shadcn components as primitives; prefer composition over props drilling
+- **Backend**: Domain layer has zero dependencies; interfaces in Application, implementations in Infrastructure
+
+### Process
+
+1. Create a feature branch (`git checkout -b feature/amazing-feature`)
+2. Make your changes — ensure `dotnet build` and `npm run build` pass
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request

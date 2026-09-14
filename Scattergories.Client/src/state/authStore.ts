@@ -15,6 +15,30 @@ export interface AuthToken {
   user: UserAccount;
 }
 
+/**
+ * Decodes the JWT payload and checks whether the token has expired.
+ * Returns true only if the token exists AND its `exp` claim is in the future.
+ */
+function isJwtValid(token: string): boolean {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+
+    // base64url decode (replace URL-safe chars, then add padding)
+    const payload = parts[1]
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+      .padEnd(parts[1].length + ((4 - (parts[1].length % 4)) % 4), '=');
+
+    const decoded = JSON.parse(atob(payload));
+    if (!decoded?.exp) return true; // no exp claim — treat as valid (legacy tokens)
+
+    return decoded.exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+}
+
 interface AuthState {
   token: string | null;
   user: UserAccount | null;
@@ -32,7 +56,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     const stored = localStorage.getItem('authUser');
     return stored ? JSON.parse(stored) : null;
   })(),
-  isAuthenticated: !!localStorage.getItem('authToken'),
+  isAuthenticated: (() => {
+    const token = localStorage.getItem('authToken');
+    return !!token && isJwtValid(token);
+  })(),
   isLoading: false,
 
   setAuth: (token, user) => {

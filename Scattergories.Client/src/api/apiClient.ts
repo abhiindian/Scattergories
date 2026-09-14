@@ -24,7 +24,16 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(text || `HTTP ${response.status}`);
+    // Provide user-friendly error messages for common HTTP errors
+    const message =
+      response.status === 401
+        ? 'Authentication expired. Please sign in again.'
+        : response.status === 404
+          ? 'Resource not found.'
+          : response.status >= 500
+            ? 'Server error. Please try again later.'
+            : text || `HTTP ${response.status}`;
+    throw new Error(message);
   }
   return text ? JSON.parse(text) : ({} as T);
 }
