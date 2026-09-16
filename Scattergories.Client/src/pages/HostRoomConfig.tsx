@@ -4,16 +4,14 @@ import { apiClient } from '../api/apiClient';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { useGameStore } from '../state/gameStore';
+import { CategoryManagerPanel } from '../components/game/CategoryManagerPanel';
 
 /**
  * HostRoomConfig page - redesigned with Carbon Design System.
- * Features: Category Deck Selection carousel, Pacing & Duration sliders,
+ * Features: Category selection (preset decks + custom editor), Pacing & Duration sliders,
  * Dictionary & Validation Rules toggles, Access & Permissions, Live Summary.
  */
-type CategoryDeck = 'Classic Party' | 'Geek & Tech' | 'Pop Culture & 90s' | 'Foodie Table';
-
-interface GameConfig {
-  categoryDeck: CategoryDeck;
+type GameConfig = {
   totalRounds: number;
   timerPerRound: number;
   pointsPerUnique: number;
@@ -22,10 +20,10 @@ interface GameConfig {
   allowProfanity: boolean;
   crossTeamUniqueness: boolean;
   roomVisibility: 'public' | 'private';
-}
+  customCategories: string[] | undefined;
+};
 
 const defaultConfig: GameConfig = {
-  categoryDeck: 'Classic Party',
   totalRounds: 9,
   timerPerRound: 180,
   pointsPerUnique: 10,
@@ -34,14 +32,20 @@ const defaultConfig: GameConfig = {
   allowProfanity: false,
   crossTeamUniqueness: true,
   roomVisibility: 'private',
+  customCategories: undefined,
 };
 
-const categoryDecks: { name: CategoryDeck; number: number; description: string; color: string }[] = [
-  { name: 'Classic Party', number: 1, description: '12 Categories • Family All-Star', color: 'bg-primary' },
-  { name: 'Geek & Tech', number: 2, description: '12 Categories • Sci-Fi & Code', color: 'bg-carbon-teal' },
-  { name: 'Pop Culture & 90s', number: 3, description: '12 Categories • Movies & Music', color: 'bg-carbon-magenta' },
-  { name: 'Foodie Table', number: 4, description: '12 Categories • Culinary Delights', color: 'bg-carbon-amber' },
-];
+/** Preset category decks for quick selection */
+const categoryPresets: Record<string, string[]> = {
+  'Classic 9': ['Name', 'Place', 'Animal', 'Thing', 'Food', 'City', 'Color', 'Brand', 'Occupation'],
+  'Extended 12': ['Name', 'Place', 'Animal', 'Thing', 'Food', 'City', 'Color', 'Brand', 'Occupation', 'Fruit', 'Language', 'Sport'],
+};
+
+interface CategoryItem {
+  id: string;
+  name: string;
+  displayOrder: number;
+}
 
 export function HostRoomConfig() {
   const navigate = useNavigate();
@@ -49,12 +53,16 @@ export function HostRoomConfig() {
   const editCode = searchParams.get('edit');
   const [config, setConfig] = useState<GameConfig>(defaultConfig);
   const [isCreating, setIsCreating] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [availableCategories, setAvailableCategories] = useState<CategoryItem[]>([]);
 
+  const { user } = useAuth();
+
+  // Load game config in edit mode
   useEffect(() => {
     if (editCode) {
       apiClient.getGame(editCode).then(game => {
         setConfig({
-          categoryDeck: 'Classic Party',
           totalRounds: game.settings.roundCount,
           timerPerRound: game.settings.timerSeconds,
           pointsPerUnique: game.settings.pointsPerAnswer,
@@ -63,6 +71,7 @@ export function HostRoomConfig() {
           allowProfanity: game.settings.allowOffensiveWords,
           crossTeamUniqueness: true,
           roomVisibility: 'private',
+          customCategories: undefined,
         });
       }).catch(err => {
         console.error('Failed to load game config:', err);
@@ -71,14 +80,45 @@ export function HostRoomConfig() {
     }
   }, [editCode]);
 
-  // Update summary text
-  const summaryText = `${config.totalRounds} Rounds • ${config.timerPerRound}s • ${config.categoryDeck} • Max 8 Players`;
-  const estimatedMinutes = Math.round((config.totalRounds * (config.timerPerRound + 20)) / 60);
+  // Fetch available categories when panel opens
+  useEffect(() => {
+    if (panelOpen) {
+      apiClient.getCategories().then(cats => {
+        setAvailableCategories(cats);
+      }).catch(err => {
+        console.error('Failed to load categories:', err);
+        toast.error('Failed to load categories');
+      });
+    }
+  }, [panelOpen]);
 
-  const { user } = useAuth();
+  // Get currently selected categories for the panel
+  const getPanelCategories = () => {
+    if (config.customCategories && config.customCategories.length > 0) {
+      return config.customCategories;
+    }
+    // Default to Classic 9 when creating
+    if (!editCode) {
+      return categoryPresets['Classic 9'];
+    }
+    return [];
+  };
 
   const updateConfig = <K extends keyof GameConfig>(key: K, value: GameConfig[K]) => {
     setConfig(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleCategorySave = (selectedNames: string[]) => {
+    setConfig(prev => ({ ...prev, customCategories: selectedNames }));
+    toast.success(`Categories updated: ${selectedNames.length} selected`);
+  };
+
+  const handlePresetSelect = (presetName: string) => {
+    const names = categoryPresets[presetName];
+    if (names) {
+      setConfig(prev => ({ ...prev, customCategories: [...names] }));
+      toast.success(`Applied "${presetName}" preset`);
+    }
   };
 
   const handleCreateOrUpdateRoom = async () => {
@@ -91,6 +131,7 @@ export function HostRoomConfig() {
         allowPlurals: config.allowPlurals,
         allowProperNouns: config.allowProperNouns,
         allowOffensiveWords: config.allowProfanity,
+        categories: config.customCategories,
       };
 
       if (editCode) {
@@ -127,8 +168,11 @@ export function HostRoomConfig() {
     return `${seconds}s (${m}m ${s < 10 ? '0' : ''}${s}s)`;
   };
 
+  const activeCategories = config.customCategories || getPanelCategories();
+  const summaryText = `${config.totalRounds} Rounds • ${config.timerPerRound}s • ${activeCategories.length} Categories • Max 8 Players`;
+
   return (
-    <div className="max-w-md md:max-w-3xl lg:max-w-[1120px] mx-auto px-4 md:px-8 py-4 md:py-8">
+    <div className="max-w-md md:max-w-3xl lg:max-w-280 mx-auto px-4 md:px-8 py-4 md:py-8">
       {/* Top Navigation & Mode Switcher */}
       <div className="flex flex-col gap-3 mb-4 md:mb-8">
         <div className="flex items-center justify-between">
@@ -140,7 +184,7 @@ export function HostRoomConfig() {
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
           {!editCode && (
-            <div className="inline-flex p-1 rounded-full bg-surface-container-high shadow-inner hidden md:inline-flex">
+            <div className="inline-flex p-1 rounded-full bg-surface-container-high shadow-inner hidden md:flex">
               <button
                 onClick={() => navigate('/dashboard')}
                 className="px-6 py-2 rounded-full font-label-caps text-[12px] text-on-surface-variant hover:text-on-surface transition-all"
@@ -167,7 +211,7 @@ export function HostRoomConfig() {
 
         {/* Header Banner */}
         <div className="mt-2 flex items-start gap-3 bg-surface-container-low rounded-xl p-4 md:p-6 shadow-sm">
-          <div className="w-12 md:w-16 h-12 md:h-16 rounded-xl bg-primary-container flex items-center justify-center text-on-primary shadow-sm flex-shrink-0">
+          <div className="w-12 md:w-16 h-12 md:h-16 rounded-xl bg-primary-container flex items-center justify-center text-on-primary shadow-sm shrink-0">
             <span className="material-symbols-outlined text-[26px] md:text-[32px]">tune</span>
           </div>
           <div className="flex flex-col min-w-0 justify-center h-full">
@@ -175,7 +219,7 @@ export function HostRoomConfig() {
               {editCode ? 'Edit Game Rules' : 'Host a New Game'}
             </h1>
             <p className="font-body-md text-[14px] md:text-[16px] text-on-surface-variant mt-0.5 md:mt-1">
-              Configure custom rules, list decks, and round timers for your lobby.
+              Configure custom rules, category decks, and round timers for your lobby.
             </p>
           </div>
         </div>
@@ -185,52 +229,59 @@ export function HostRoomConfig() {
       <form className="flex flex-col md:grid md:grid-cols-2 gap-3 md:gap-6" onSubmit={(e) => { e.preventDefault(); handleCreateOrUpdateRoom(); }}>
         {/* Left Column */}
         <div className="flex flex-col gap-4">
-          {/* Category Deck Selection Carousel */}
-          <div className="flex flex-col gap-1.5">
+          {/* Category Selection */}
+          <section className="flex flex-col gap-3">
             <div className="flex items-center justify-between px-1">
-              <span className="font-label-caps text-[10px] md:text-[12px] text-on-surface-variant uppercase">Category Deck Selection</span>
+              <span className="font-label-caps text-[10px] md:text-[12px] text-on-surface-variant uppercase">
+                Category Selection
+              </span>
               <span className="font-label-sm text-[12px] md:text-[14px] text-primary font-semibold flex items-center gap-0.5">
                 <span className="material-symbols-outlined text-[14px] md:text-[18px]">casino</span> 20-Sided Die
               </span>
             </div>
-            <div className="flex gap-3 overflow-x-auto pb-2 pt-1 -mx-4 md:mx-0 px-4 md:px-0 scrollbar-none">
-              {categoryDecks.map(deck => (
-                <label
-                  key={deck.name}
-                  className={`cursor-pointer relative flex-shrink-0 w-44 md:w-48 rounded-xl p-3 md:p-4 flex flex-col justify-between shadow-sm transition-transform active:scale-95 ${
-                    config.categoryDeck === deck.name
-                      ? 'bg-primary-fixed text-on-primary-fixed'
+
+            {/* Quick Presets */}
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(categoryPresets).map(([name]) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => handlePresetSelect(name)}
+                  className={`px-3 py-2 rounded-xl font-label-sm text-[12px] md:text-[13px] font-semibold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 ${
+                    config.customCategories &&
+                    JSON.stringify(config.customCategories) === JSON.stringify(categoryPresets[name])
+                      ? 'bg-primary-fixed text-on-primary-fixed ring-1 ring-primary'
                       : 'bg-surface-container text-on-surface hover:bg-surface-container-high'
                   }`}
                 >
-                  <input
-                    type="radio"
-                    name="categoryDeck"
-                    value={deck.name}
-                    checked={config.categoryDeck === deck.name}
-                    onChange={() => updateConfig('categoryDeck', deck.name)}
-                    className="sr-only"
-                  />
-                  <div className="flex items-start justify-between mb-2">
-                    <span className={`w-7 h-7 rounded-lg ${deck.color} flex items-center justify-center font-label-caps text-[10px] font-bold`}>
-                      #{deck.number}
-                    </span>
-                    <div className={`w-5 h-5 rounded-full flex items-center justify-center shadow-xs ${
-                      config.categoryDeck === deck.name
-                        ? 'bg-primary text-on-primary'
-                        : 'bg-surface-variant text-transparent'
-                    }`}>
-                      <span className="material-symbols-outlined text-[14px]">check</span>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="font-headline-sm text-[14px] md:text-[15px] font-semibold leading-tight">{deck.name}</div>
-                    <div className="font-label-sm text-[12px] md:text-[13px] text-on-surface-variant mt-0.5">{deck.description}</div>
-                  </div>
-                </label>
+                  <span className="material-symbols-outlined text-[16px] md:text-[18px]">short_text</span>
+                  {name}
+                </button>
               ))}
             </div>
-          </div>
+
+            {/* Customize Button */}
+            <button
+              type="button"
+              onClick={() => setPanelOpen(true)}
+              className="w-full h-14 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-headline-sm text-[14px] md:text-[16px] font-semibold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
+            >
+              <span className="material-symbols-outlined text-[22px] md:text-[26px]">edit_note</span>
+              <span>Customize Categories</span>
+            </button>
+
+            {/* Category Preview Chips */}
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {activeCategories.map((cat) => (
+                <span
+                  key={cat}
+                  className="px-2 py-1 rounded-full bg-surface-container-lowest text-on-surface font-label-sm text-[11px] border border-border-subtle"
+                >
+                  {cat}
+                </span>
+              ))}
+            </div>
+          </section>
 
           {/* Core Game Settings Card */}
           <div className="bg-surface-container-lowest rounded-xl p-4 md:p-6 shadow-sm flex flex-col gap-4">
@@ -246,7 +297,7 @@ export function HostRoomConfig() {
                   Total Rounds
                 </label>
                 <span className="px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed font-label-caps text-[10px] md:text-[11px] font-bold">
-                  {config.totalRounds} Rounds (~{estimatedMinutes}m)
+                  {config.totalRounds} Rounds
                 </span>
               </div>
               <div className="relative flex items-center py-2">
@@ -380,7 +431,7 @@ export function HostRoomConfig() {
                   onChange={(e) => updateConfig('allowPlurals', e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-12 h-7 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary shadow-inner"></div>
+                <div className="w-12 h-7 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary shadow-inner"></div>
               </div>
             </label>
 
@@ -397,7 +448,7 @@ export function HostRoomConfig() {
                   onChange={(e) => updateConfig('allowProperNouns', e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-12 h-7 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary shadow-inner"></div>
+                <div className="w-12 h-7 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary shadow-inner"></div>
               </div>
             </label>
 
@@ -417,7 +468,7 @@ export function HostRoomConfig() {
                   onChange={(e) => updateConfig('allowProfanity', e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-12 h-7 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary shadow-inner"></div>
+                <div className="w-12 h-7 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary shadow-inner"></div>
               </div>
             </label>
 
@@ -434,7 +485,7 @@ export function HostRoomConfig() {
                   onChange={(e) => updateConfig('crossTeamUniqueness', e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-12 h-7 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary shadow-inner"></div>
+                <div className="w-12 h-7 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary shadow-inner"></div>
               </div>
             </label>
           </div>
@@ -478,12 +529,12 @@ export function HostRoomConfig() {
 
             {/* Host Identity Note */}
             <div className="flex items-center gap-3 p-3 md:p-4 rounded-lg bg-surface-container-low mt-2">
-              <div className="w-9 md:w-10 h-9 md:h-10 rounded-full bg-primary flex items-center justify-center text-on-primary font-headline-sm text-[14px] md:text-[16px] font-bold flex-shrink-0">
-                A
+              <div className="w-9 md:w-10 h-9 md:h-10 rounded-full bg-primary flex items-center justify-center text-on-primary font-headline-sm text-[14px] md:text-[16px] font-bold shrink-0">
+                {user?.name?.charAt(0).toUpperCase() || 'A'}
               </div>
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-1">
-                  <span className="font-body-md text-[14px] md:text-[15px] font-semibold text-on-surface truncate">Alex Rivera</span>
+                  <span className="font-body-md text-[14px] md:text-[15px] font-semibold text-on-surface truncate">{user?.name || 'Host'}</span>
                   <span className="px-1.5 py-0.2 rounded bg-primary-fixed text-on-primary-fixed font-label-caps text-[10px] md:text-[11px] font-bold">HOST</span>
                 </div>
                 <span className="font-label-sm text-[12px] md:text-[13px] text-on-surface-variant truncate">Full control over timer skips, vote recalls & deck roll</span>
@@ -499,7 +550,7 @@ export function HostRoomConfig() {
               <span className="material-symbols-outlined text-[16px] md:text-[20px] text-primary">info</span>
               <span className="truncate font-semibold">{summaryText}</span>
             </div>
-            <span className="font-label-caps text-[10px] md:text-[12px] text-primary uppercase font-bold flex-shrink-0">DTO READY</span>
+            <span className="font-label-caps text-[10px] md:text-[12px] text-primary uppercase font-bold shrink-0">DTO READY</span>
           </div>
 
           {/* Main Primary CTA Button */}
@@ -533,6 +584,15 @@ export function HostRoomConfig() {
           </div>
         </div>
       </form>
+
+      {/* Category Manager Panel (slideout) */}
+      <CategoryManagerPanel
+        isOpen={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        initialCategories={getPanelCategories()}
+        availableCategories={availableCategories}
+        onSave={handleCategorySave}
+      />
     </div>
   );
 }

@@ -278,6 +278,20 @@ public class GamesController : ControllerBase
     }
 
     /// <summary>
+    /// List all available categories.
+    /// GET /api/categories
+    /// </summary>
+    [HttpGet("categories")]
+    public async Task<IActionResult> GetCategories()
+    {
+        var categories = await _context.Categories
+            .OrderBy(c => c.DisplayOrder)
+            .Select(c => new { c.Id, c.Name, c.DisplayOrder })
+            .ToArrayAsync();
+        return Ok(categories);
+    }
+
+    /// <summary>
     /// Health check.
     /// GET /api/games/health
     /// </summary>

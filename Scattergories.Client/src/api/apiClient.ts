@@ -72,6 +72,9 @@ export const apiClient = {
   getGame: (code: string) =>
     request<import('./types').GameState>(`/games/${code}`),
 
+  getCategories: () =>
+    request<Array<{ id: string; name: string; displayOrder: number }>>('/categories'),
+
   startGame: (code: string) =>
     request<void>(`/games/${code}/start`, { method: 'POST' }),
 

@@ -289,15 +289,7 @@ export function GamePage() {
                       {cat.name}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    {hasAnswer && (
-                      <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-carbon-green/10 text-carbon-green">
-                        <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                        <span className="font-label-caps text-[10px] font-semibold">VALID</span>
-                      </div>
-                    )}
-                    {!hasAnswer && <span className="font-label-caps text-[10px] text-on-surface-variant">0/1 PTS</span>}
-                  </div>
+                  {/* validation removed */}
 
                 </div>
 
@@ -335,21 +327,6 @@ export function GamePage() {
                   )}
                 </div>
 
-                {/* Live Quick-Pick Word Suggestions */}
-                {isActive && (
-                  <div className="flex items-center gap-2 overflow-x-auto pt-1 pb-0.5 no-scrollbar">
-                    <span className="font-label-caps text-[10px] text-on-surface-variant mr-1 flex-shrink-0">HINTS:</span>
-                    {['Example 1', 'Example 2', 'Example 3', 'Example 4'].map((hint) => (
-                      <button
-                        key={hint}
-                        className="px-3 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-[12px] hover:bg-surface-container-high transition-colors flex-shrink-0"
-                        type="button"
-                      >
-                        {hint}
-                      </button>
-                    ))}
-                  </div>
-                )}
 
 
               </div>

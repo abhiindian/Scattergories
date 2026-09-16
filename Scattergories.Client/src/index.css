@@ -106,6 +106,26 @@
   --radius: 0.5rem;
 }
 
+/* Slide-in animation for side panels */
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.25s ease-out;
+}
+
+/* Slide-up animation for modals */
+@keyframes slide-up {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.25s ease-out;
+}
+
 /* Fade-in animation for dropdown menus */
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(-4px); }
