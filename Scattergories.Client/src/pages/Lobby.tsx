@@ -135,7 +135,7 @@ export function Lobby() {
   );
 
   return (
-    <div className="max-w-md md:max-w-4xl lg:max-w-[1120px] mx-auto px-4 py-4 md:py-8 pb-28 md:pb-8">
+    <div className="max-w-md md:max-w-4xl lg:max-w-280 mx-auto px-4 py-4 md:py-8 pb-28 md:pb-8">
       <div className="md:grid md:grid-cols-12 md:gap-8 lg:gap-12">
         {/* Left Column: Room Banner & Players */}
         <div className="md:col-span-7 lg:col-span-7 flex flex-col gap-4">

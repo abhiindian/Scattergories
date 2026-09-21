@@ -115,21 +115,19 @@ export function GamePage() {
 
         hubConnection.onTimeUp(() => {
           setPhase('answering');
+          // Auto-submit current answers
           setTimeout(() => {
             document.getElementById('submit-answers-btn')?.click();
           }, 500);
-          
-          const currentPlayer = useGameStore.getState().game?.players.find(p => p.id === useGameStore.getState().playerId);
-          if (currentPlayer?.isHost) {
-            setTimeout(async () => {
-              try {
-                await hubConnection.revealAndScore(code!);
-                await hubConnection.beginNextRound(code!);
-              } catch (e) {
-                console.error('Failed to auto-advance round', e);
-              }
-            }, 1500);
-          }
+
+          // Server-driven round flow: scores, starts next round
+          setTimeout(async () => {
+            try {
+              await hubConnection.roundTimeUp(code!);
+            } catch (e) {
+              console.error('Failed to advance round after time up', e);
+            }
+          }, 1500);
         });
 
         hubConnection.onAnswersRevealed((data: { roundCategories: CategoryDto[]; scoredAnswers: ScoredAnswerDto[] }) => {
@@ -204,7 +202,7 @@ export function GamePage() {
     const isReadOnly = phase === 'answering';
 
     return (
-      <div className="max-w-md md:max-w-4xl lg:max-w-[1120px] mx-auto px-4 md:px-8 py-4 pb-28 md:pb-8">
+      <div className="max-w-md md:max-w-4xl lg:max-w-280 mx-auto px-4 md:px-8 py-4 pb-28 md:pb-8">
         {/* Sticky Game Heads-Up Bar */}
         <div className="sticky top-0 z-30 pt-2 pb-3 bg-surface/90 backdrop-blur-md">
           <div className="bg-surface-container-lowest rounded-xl shadow-md p-4 flex items-center justify-between gap-3">
@@ -232,7 +230,7 @@ export function GamePage() {
 
             {/* Timer or Status Badge */}
             {phase === 'timer' ? (
-              <div className="relative flex items-center justify-center flex-shrink-0 w-16 h-16 bg-surface-container-low rounded-full shadow-inner">
+              <div className="relative flex items-center justify-center shrink-0 w-16 h-16 bg-surface-container-low rounded-full shadow-inner">
                 <svg className="w-14 h-14 -rotate-90" viewBox="0 0 48 48">
                   <circle className="stroke-surface-container-highest" cx="24" cy="24" fill="transparent" r="20" strokeWidth="4" />
                   <circle
@@ -253,7 +251,7 @@ export function GamePage() {
                 </div>
               </div>
             ) : (
-              <div className="flex-shrink-0 px-2.5 py-1.5 rounded-full bg-primary-fixed text-on-primary-fixed">
+              <div className="shrink-0 px-2.5 py-1.5 rounded-full bg-primary-fixed text-on-primary-fixed">
                 <span className="font-label-caps text-[10px] font-semibold">TIME UP!</span>
               </div>
             )}
@@ -374,7 +372,7 @@ export function GamePage() {
     const isLastRound = game?.gameState === 'Finished';
 
     return (
-      <div className="max-w-md md:max-w-4xl lg:max-w-[1120px] mx-auto px-4 md:px-8 py-4 pb-28 md:pb-8">
+      <div className="max-w-md md:max-w-4xl lg:max-w-280 mx-auto px-4 md:px-8 py-4 pb-28 md:pb-8">
         {/* Sticky Game Heads-Up Bar */}
         <div className="sticky top-0 z-30 pt-2 pb-3 bg-surface/90 backdrop-blur-md">
           <div className="bg-surface-container-lowest rounded-xl shadow-md p-4 flex items-center justify-between gap-3">
@@ -472,14 +470,10 @@ export function GamePage() {
                 <span>View Final Scoreboard</span>
               </button>
             ) : (
-              <button
-                onClick={() => {}}
-                className="w-full md:w-auto md:px-8 h-12 md:h-14 rounded-lg md:rounded-xl bg-primary-container text-white font-headline-sm text-[14px] md:text-[16px] font-semibold flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(15,98,254,0.3)] active:scale-[0.98] transition-transform"
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[22px] md:text-[24px]">arrow_forward</span>
-                <span>Next Category</span>
-              </button>
+              <div className="w-full md:w-auto md:px-8 h-12 md:h-14 rounded-lg md:rounded-xl bg-primary-container text-white font-headline-sm text-[14px] md:text-[16px] font-semibold flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(15,98,254,0.3)]">
+                <span className="material-symbols-outlined text-[22px] md:text-[24px] animate-spin">progress_activity</span>
+                <span>Next round starting...</span>
+              </div>
             )}
           </div>
         )}

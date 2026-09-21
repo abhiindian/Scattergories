@@ -10,6 +10,7 @@ using Scattergories.Application.Features.Games.Commands.CreateGame;
 using Scattergories.Application.Features.Games.Commands.EndGame;
 using Scattergories.Application.Features.Games.Commands.JoinGame;
 using Scattergories.Application.Features.Games.Commands.RevealAndScore;
+using Scattergories.Application.Features.Games.Commands.RoundTimeUp;
 using Scattergories.Application.Features.Games.Commands.StartGame;
 using Scattergories.Application.Features.Games.Commands.SubmitAnswers;
 using Scattergories.Application.Features.Games.Queries.GetGame;
@@ -273,6 +274,22 @@ public class GamesController : ControllerBase
         if (game == null) return NotFound();
 
         var command = new EndGameCommand(game.Id);
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Scores the current round and starts the next round automatically.
+    /// POST /api/games/{code}/time-up
+    /// </summary>
+    [HttpPost("{code}/time-up")]
+    [Authorize]
+    public async Task<ActionResult<RoundTimeUpResult>> RoundTimeUp(string code)
+    {
+        var game = await GetGameEntity(code);
+        if (game == null) return NotFound();
+
+        var command = new RoundTimeUpCommand(game.Id);
         var result = await _mediator.Send(command);
         return Ok(result);
     }

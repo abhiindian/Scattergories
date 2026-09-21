@@ -9,8 +9,10 @@ using Scattergories.Application.Common.Interfaces;
 using Scattergories.Infrastructure.Data;
 using Scattergories.Application.Features.Games.Commands.BeginRound;
 using Scattergories.Application.Features.Games.Commands.RevealAndScore;
+using Scattergories.Application.Features.Games.Commands.RoundTimeUp;
 using Scattergories.Application.Features.Games.Commands.SubmitAnswers;
 using Scattergories.Application.Features.Games.Queries.GetGame;
+using Scattergories.Domain.Entities;
 
 namespace Scattergories.Infrastructure.SignalR;
 
@@ -198,10 +200,6 @@ public class GameHub : Hub
     /// </summary>
     public async Task RevealAndScore(string gameCode)
     {
-        var httpContext = Context.GetHttpContext();
-        if (!await IsPlayerHost(httpContext, gameCode))
-            throw new HubException("Only the host can reveal and score.");
-
         var game = await GetGame(gameCode.ToUpper());
         if (game == null)
             throw new UnauthorizedAccessException("Game not found.");
@@ -220,14 +218,11 @@ public class GameHub : Hub
     }
 
     /// <summary>
-    /// Host advances to the next round.
+    /// Advances to the next round and starts its timer.
+    /// Anyone can trigger this (not host-gated).
     /// </summary>
     public async Task BeginNextRound(string gameCode)
     {
-        var httpContext = Context.GetHttpContext();
-        if (!await IsPlayerHost(httpContext, gameCode))
-            throw new HubException("Only the host can begin the next round.");
-
         var game = await GetGame(gameCode.ToUpper());
         if (game == null)
             throw new UnauthorizedAccessException("Game not found.");
@@ -242,25 +237,77 @@ public class GameHub : Hub
             Categories = result.Categories
         });
 
-        // Start timer - clients will handle countdown
-        for (var remaining = result.TimerSeconds; remaining > 0; remaining -= 5)
-        {
-            await Task.Delay(TimeSpan.FromSeconds(5));
-            await Clients.Group(gameCode.ToUpper()).SendAsync("TimerTick", new
-            {
-                RemainingSeconds = Math.Max(remaining, 0),
-                TotalSeconds = result.TimerSeconds
-            });
-        }
-
-        // Timer up
-        await Clients.Group(gameCode.ToUpper()).SendAsync("TimeUp", new
-        {
-            RoundNumber = game.CurrentRoundNumber,
-            Letter = result.Letter
-        });
+        // Start timer loop in background - clients handle countdown
+        _ = StartTimerLoop(gameCode.ToUpper(), result.TimerSeconds, result.Letter);
 
         await Clients.Group(gameCode.ToUpper()).SendAsync("LobbyUpdated", await GetGameDto(gameCode.ToUpper()), GetOnlinePlayerIds(gameCode.ToUpper()));
+    }
+
+    /// <summary>
+    /// Server-driven round time-up: scores current round and starts next round automatically.
+    /// Anyone can trigger this (not host-gated).
+    /// </summary>
+    public async Task RoundTimeUp(string gameCode)
+    {
+        var game = await GetGame(gameCode.ToUpper());
+        if (game == null)
+            throw new UnauthorizedAccessException("Game not found.");
+
+        var result = await _mediator.Send(new RoundTimeUpCommand(game.Id));
+
+        // Broadcast scoring results
+        await Clients.Group(gameCode.ToUpper()).SendAsync("AnswersRevealed", new
+        {
+            RoundCategories = game.Categories.OrderBy(c => c.DisplayOrder).Select(c => new { c.Id, c.Name, c.DisplayOrder }).ToArray(),
+            ScoredAnswers = result.Scores
+        });
+        await Clients.Group(gameCode.ToUpper()).SendAsync("ScoringComplete", result.Scores);
+        await Clients.Group(gameCode.ToUpper()).SendAsync("RoundComplete", new
+        {
+            RoundNumber = result.RoundNumber,
+            NextRoundAvailable = result.NextRoundAvailable
+        });
+
+        if (result.NextRoundAvailable)
+        {
+            // Start the next round - BeginNextRound broadcasts RoundStarted + LobbyUpdated
+            await BeginNextRound(gameCode);
+        }
+        else
+        {
+            // Game finished - broadcast final state
+            await Clients.Group(gameCode.ToUpper()).SendAsync("GameFinished");
+            await Clients.Group(gameCode.ToUpper()).SendAsync("LobbyUpdated",
+                await GetGameDto(gameCode.ToUpper()),
+                GetOnlinePlayerIds(gameCode.ToUpper()));
+        }
+    }
+
+    private async Task StartTimerLoop(string gameCode, int timerSeconds, string letter)
+    {
+        try
+        {
+            for (var remaining = timerSeconds; remaining > 0; remaining -= 5)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5));
+                await Clients.Group(gameCode).SendAsync("TimerTick", new
+                {
+                    RemainingSeconds = Math.Max(remaining, 0),
+                    TotalSeconds = timerSeconds
+                });
+            }
+
+            // Timer up - send TimeUp event
+            await Clients.Group(gameCode).SendAsync("TimeUp", new
+            {
+                RoundNumber = 0,
+                Letter = letter
+            });
+        }
+        catch
+        {
+            // Timer loop should not throw
+        }
     }
 
     /// <summary>
@@ -289,22 +336,6 @@ public class GameHub : Hub
             await Clients.Group(gameCode.ToUpper()).SendAsync("LobbyUpdated", await GetGameDto(gameCode.ToUpper()), onlinePlayerIds);
         }
         await base.OnDisconnectedAsync(exception);
-    }
-
-    /// <summary>
-    /// Checks if the authenticated user in the given HttpContext is the host of the specified game.
-    /// </summary>
-    private async Task<bool> IsPlayerHost(HttpContext? httpContext, string gameCode)
-    {
-        var userIdClaim = httpContext?.User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier || c.Type == "nameid" || c.Type == "sub")?.Value ?? httpContext?.User?.FindFirst("sub")?.Value ?? httpContext?.User?.FindFirst("nameid")?.Value;
-        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            return false;
-
-        var game = await _dbContext.Games
-            .Include(g => g.Players)
-            .FirstOrDefaultAsync(g => g.Code == gameCode);
-
-        return game?.Players.Any(p => p.UserId == userId && p.IsHost) == true;
     }
 
     // --- Private Helpers ---

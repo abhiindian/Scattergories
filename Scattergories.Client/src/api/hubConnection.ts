@@ -111,6 +111,10 @@ export const hubConnection = {
     await connection?.invoke('BeginNextRound', gameCode);
   },
 
+  async roundTimeUp(gameCode: string): Promise<void> {
+    await connection?.invoke('RoundTimeUp', gameCode);
+  },
+
   // --- Subscribe to events ---
   onGameUpdated: (handler: GameUpdatedHandler) => register('LobbyUpdated', handler),
   onRoundStarted: (handler: RoundStartedHandler) => register('RoundStarted', handler),
