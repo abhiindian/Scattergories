@@ -40,7 +40,7 @@ public class SubmitAnswersHandler : IRequestHandler<SubmitAnswersCommand, Unit>
             throw new ScattergoriesException("Round not found.");
 
         var player = await _context.Players
-            .Include(p => p.Answers)
+            .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == request.PlayerId, cancellationToken);
 
         if (player == null)
@@ -50,8 +50,11 @@ public class SubmitAnswersHandler : IRequestHandler<SubmitAnswersCommand, Unit>
         if (player.GameId != request.GameId)
             throw new ScattergoriesException("Player does not belong to this game.");
 
-        // Validate no duplicate answers from the same player in the same round
-        var existingAnswers = player.Answers.Where(a => a.RoundId == round.Id).ToList();
+        // Check for duplicate answers in this round from the same player
+        var existingAnswers = await _context.Answers
+            .Where(a => a.PlayerId == request.PlayerId && a.RoundId == round.Id)
+            .Select(a => a.CategoryId)
+            .ToListAsync(cancellationToken);
 
         foreach (var submission in request.Answers)
         {
@@ -66,12 +69,12 @@ public class SubmitAnswersHandler : IRequestHandler<SubmitAnswersCommand, Unit>
                 continue; // Will be marked invalid during scoring
 
             // Check if player already submitted for this category in this round
-            if (existingAnswers.Any(a => a.CategoryId == submission.CategoryId))
+            if (existingAnswers.Contains(submission.CategoryId))
                 continue; // Duplicate submission for same category
 
             var answer = new Answer(player.Id, round.Id, submission.CategoryId, normalizedText);
-            player.Answers.Add(answer);
-            existingAnswers.Add(answer);
+            _context.Answers.Add(answer);
+            existingAnswers.Add(submission.CategoryId);
         }
 
         await _context.SaveChangesAsync(cancellationToken);

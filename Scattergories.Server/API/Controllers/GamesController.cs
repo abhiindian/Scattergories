@@ -124,53 +124,80 @@ public class GamesController : ControllerBase
     /// POST /api/games/{code}/start
     /// </summary>
     [HttpPost("{code}/start")]
-    [Authorize]
-    public async Task<IActionResult> StartGame(string code)
+    public async Task<IActionResult> StartGame(string code, [FromQuery] Guid? playerId)
     {
         var game = await GetGameEntity(code);
         if (game == null) return NotFound();
 
-        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier)
-            ?? _httpContextAccessor.HttpContext?.User?.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)
-            ?? _httpContextAccessor.HttpContext?.User?.FindFirstValue("nameid");
-        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized();
+        if (playerId.HasValue)
+        {
+            // Guest flow: resolve by playerId query parameter
+            var player = game.Players.FirstOrDefault(p => p.Id == playerId.Value);
+            if (player == null) return NotFound("Player not found in game.");
+            if (!player.IsHost) return Forbid("Only the host can start the game.");
+        }
+        else
+        {
+            // Authenticated flow: resolve by JWT
+            var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? _httpContextAccessor.HttpContext?.User?.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)
+                ?? _httpContextAccessor.HttpContext?.User?.FindFirstValue("nameid");
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+                return Unauthorized();
 
-        var player = game.Players.FirstOrDefault(p => p.UserId == userId);
-        if (player == null || !player.IsHost)
-            return Forbid();
+            var player = game.Players.FirstOrDefault(p => p.UserId == userId);
+            if (player == null || !player.IsHost)
+                return Forbid();
+        }
 
         var command = new StartGameCommand(game.Id);
         await _mediator.Send(command);
 
-        // Immediately start the first round and broadcast so clients transition to the game screen
-        var beginResult = await _mediator.Send(new BeginRoundCommand(game.Id));
+        // Reload the entity after the command creates rounds — the game entity here is stale
+        game = await GetGameEntity(code);
+        if (game == null) return NotFound();
+
+        // Pick the next letter and set round state — inline to avoid concurrency conflict
+        // with a separate BeginRound command (both would try to SaveChanges on the same entity).
+        var letter = _letterService.GetNextLetter(game).ToString();
+        var round = game.Rounds.FirstOrDefault(r => r.RoundNumber == 1);
+        if (round != null)
+        {
+            round.Letter = letter;
+            round.State = Domain.Enums.RoundState.Running;
+            round.StartedAt = DateTime.UtcNow;
+        }
+
+        await _context.SaveChangesAsync();
+
+        var categories = game.Categories.OrderBy(c => c.DisplayOrder)
+            .Select(c => new { c.Id, c.Name, c.DisplayOrder }).ToArray();
 
         await _hubContext.Clients.Group(code.ToUpper()).SendAsync("RoundStarted", new
         {
-            RoundNumber = beginResult.RoundNumber,
-            Letter = beginResult.Letter,
-            TimerSeconds = beginResult.TimerSeconds,
-            Categories = beginResult.Categories
+            RoundNumber = 1,
+            Letter = letter,
+            TimerSeconds = game.TimerSeconds,
+            Categories = categories
         });
 
-        // Start timer logic equivalent to GameHub.BeginNextRound
+        // Start timer loop in background
         _ = Task.Run(async () =>
         {
-            for (var remaining = beginResult.TimerSeconds; remaining > 0; remaining -= 5)
+            for (var remaining = game.TimerSeconds; remaining > 0; remaining -= 5)
             {
                 await Task.Delay(TimeSpan.FromSeconds(5));
                 await _hubContext.Clients.Group(code.ToUpper()).SendAsync("TimerTick", new
                 {
                     RemainingSeconds = Math.Max(remaining, 0),
-                    TotalSeconds = beginResult.TimerSeconds
+                    TotalSeconds = game.TimerSeconds
                 });
             }
 
             await _hubContext.Clients.Group(code.ToUpper()).SendAsync("TimeUp", new
             {
-                RoundNumber = beginResult.RoundNumber,
-                Letter = beginResult.Letter
+                RoundNumber = 1,
+                Letter = letter
             });
         });
 
@@ -182,34 +209,46 @@ public class GamesController : ControllerBase
     /// POST /api/games/{code}/answers
     /// </summary>
     [HttpPost("{code}/answers")]
-    [Authorize]
-    public async Task<IActionResult> SubmitAnswers(string code, [FromBody] SubmitAnswersRequest request)
+    public async Task<IActionResult> SubmitAnswers(string code, [FromQuery] Guid? playerId, [FromBody] SubmitAnswersRequest request)
     {
         var game = await GetGameEntity(code);
         if (game == null) return NotFound();
 
-        // Resolve player from JWT authentication context
-        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier)
-            ?? _httpContextAccessor.HttpContext?.User?.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)
-            ?? _httpContextAccessor.HttpContext?.User?.FindFirstValue("nameid");
-        Guid playerId;
+        Guid resolvedPlayerId;
 
-        if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userGuid))
+        if (playerId.HasValue)
         {
-            var player = await _context.Players
-                .FirstOrDefaultAsync(p => p.UserId == userGuid && p.GameId == game.Id);
-            if (player == null)
-                return Unauthorized("Player not found in game.");
-            playerId = player.Id;
+            // Guest flow: resolve by playerId query parameter
+            var player = game.Players.FirstOrDefault(p => p.Id == playerId.Value);
+            if (player == null) return NotFound("Player not found in game.");
+            resolvedPlayerId = player.Id;
         }
         else
         {
-            return Unauthorized("Authentication required.");
+            // Authenticated flow: resolve from JWT
+            var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? _httpContextAccessor.HttpContext?.User?.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)
+                ?? _httpContextAccessor.HttpContext?.User?.FindFirstValue("nameid");
+            Guid playerFromJwt;
+
+            if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userGuid))
+            {
+                var player = await _context.Players
+                    .FirstOrDefaultAsync(p => p.UserId == userGuid && p.GameId == game.Id);
+                if (player == null)
+                    return Unauthorized("Player not found in game.");
+                playerFromJwt = player.Id;
+            }
+            else
+            {
+                return Unauthorized("Authentication required.");
+            }
+            resolvedPlayerId = playerFromJwt;
         }
 
         var command = new SubmitAnswersCommand(
             game.Id,
-            playerId,
+            resolvedPlayerId,
             request.RoundId,
             request.Answers.Select(a => new AnswerSubmission(a.CategoryId, a.Text)).ToArray()
         );
