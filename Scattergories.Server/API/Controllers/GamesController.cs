@@ -330,6 +330,53 @@ public class GamesController : ControllerBase
 
         var command = new RoundTimeUpCommand(game.Id);
         var result = await _mediator.Send(command);
+
+        if (result.NextRoundAvailable)
+        {
+            var nextGame = await GetGameEntity(code);
+            if (nextGame != null)
+            {
+                var nextRound = nextGame.Rounds.FirstOrDefault(r => r.RoundNumber == nextGame.CurrentRoundNumber);
+                if (nextRound != null)
+                {
+                    nextRound.Letter = _letterService.GetNextLetter(nextGame).ToString();
+                    nextRound.State = Domain.Enums.RoundState.Running;
+                    nextRound.StartedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+
+                    var categories = nextGame.Categories.OrderBy(c => c.DisplayOrder)
+                        .Select(c => new { c.Id, c.Name, c.DisplayOrder }).ToArray();
+
+                    await _hubContext.Clients.Group(code.ToUpper()).SendAsync("RoundStarted", new
+                    {
+                        RoundNumber = nextGame.CurrentRoundNumber,
+                        Letter = nextRound.Letter,
+                        TimerSeconds = nextGame.TimerSeconds,
+                        Categories = categories
+                    });
+
+                    _ = Task.Run(async () =>
+                    {
+                        for (var remaining = nextGame.TimerSeconds; remaining > 0; remaining -= 5)
+                        {
+                            await Task.Delay(TimeSpan.FromSeconds(5));
+                            await _hubContext.Clients.Group(code.ToUpper()).SendAsync("TimerTick", new
+                            {
+                                RemainingSeconds = Math.Max(remaining, 0),
+                                TotalSeconds = nextGame.TimerSeconds
+                            });
+                        }
+
+                        await _hubContext.Clients.Group(code.ToUpper()).SendAsync("TimeUp", new
+                        {
+                            RoundNumber = nextGame.CurrentRoundNumber,
+                            Letter = nextRound.Letter
+                        });
+                    });
+                }
+            }
+        }
+
         return Ok(result);
     }
 

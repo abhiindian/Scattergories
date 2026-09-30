@@ -1,7 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Scattergories.Application.Common.Interfaces;
-using Scattergories.Application.Features.Games.Commands.BeginRound;
 using Scattergories.Application.Features.Games.Commands.RevealAndScore;
 using Scattergories.Domain.Entities;
 using Scattergories.Domain.Enums;
@@ -12,25 +11,20 @@ namespace Scattergories.Application.Features.Games.Commands.RoundTimeUp;
 
 /// <summary>
 /// Handler for round time-up.
-/// Ensures every player has an answer entry, scores the round, and starts the next round.
+/// Ensures every player has an answer entry and scores the round.
+/// The next round is started by the hub method or REST endpoint after this completes.
 /// </summary>
 public class RoundTimeUpHandler : IRequestHandler<RoundTimeUpCommand, RoundTimeUpResult>
 {
     private readonly IApplicationDbContext _context;
     private readonly IScoringService _scoringService;
-    private readonly ILetterService _letterService;
-    private readonly IMediator _mediator;
 
     public RoundTimeUpHandler(
         IApplicationDbContext context,
-        IScoringService scoringService,
-        ILetterService letterService,
-        IMediator mediator)
+        IScoringService scoringService)
     {
         _context = context;
         _scoringService = scoringService;
-        _letterService = letterService;
-        _mediator = mediator;
     }
 
     public async Task<RoundTimeUpResult> Handle(RoundTimeUpCommand request, CancellationToken cancellationToken)
@@ -81,30 +75,21 @@ public class RoundTimeUpHandler : IRequestHandler<RoundTimeUpCommand, RoundTimeU
         )).ToArray();
 
         // Check if game is finished
-        if (game.CurrentRoundNumber >= game.RoundCount)
+        var isFinished = game.CurrentRoundNumber >= game.RoundCount;
+
+        if (isFinished)
         {
             game.GameState = GameState.Finished;
             game.FinishedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
-
-            return new RoundTimeUpResult(
-                round.Id,
-                round.RoundNumber,
-                round.Letter,
-                scores,
-                false // No more rounds
-            );
         }
-
-        // Begin the next round
-        var beginResult = await _mediator.Send(new BeginRoundCommand(game.Id), cancellationToken);
 
         return new RoundTimeUpResult(
             round.Id,
             round.RoundNumber,
             round.Letter,
             scores,
-            true // Next round available
+            !isFinished
         );
     }
 
