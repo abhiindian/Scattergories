@@ -262,16 +262,20 @@ public class GameHub : Hub
             ScoredAnswers = result.Scores
         });
         await Clients.Group(gameCode.ToUpper()).SendAsync("ScoringComplete", result.Scores);
-        await Clients.Group(gameCode.ToUpper()).SendAsync("RoundComplete", new
-        {
-            RoundNumber = result.RoundNumber,
-            NextRoundAvailable = result.NextRoundAvailable
-        });
 
         if (result.NextRoundAvailable)
         {
-            // Start the next round - BeginNextRound broadcasts RoundStarted + LobbyUpdated
+            // Start the next round first so the client has new round data
+            // ready when RoundComplete fires (avoids showing "Next round
+            // starting..." while the client still has no letter/categories).
             await BeginNextRound(gameCode);
+
+            // Then signal the current round is complete
+            await Clients.Group(gameCode.ToUpper()).SendAsync("RoundComplete", new
+            {
+                RoundNumber = result.RoundNumber,
+                NextRoundAvailable = result.NextRoundAvailable
+            });
         }
         else
         {

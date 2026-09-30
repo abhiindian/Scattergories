@@ -113,21 +113,18 @@ export function GamePage() {
           setTimeLeft(data.remainingSeconds);
         });
 
-        hubConnection.onTimeUp(() => {
+        hubConnection.onTimeUp(async () => {
           setPhase('answering');
-          // Auto-submit current answers
-          setTimeout(() => {
-            document.getElementById('submit-answers-btn')?.click();
-          }, 500);
 
-          // Server-driven round flow: scores, starts next round
-          setTimeout(async () => {
-            try {
-              await hubConnection.roundTimeUp(code!);
-            } catch (e) {
-              console.error('Failed to advance round after time up', e);
-            }
-          }, 1500);
+          // Directly trigger server-side time-up flow: scores current round (auto-creates
+          // empty answer entries for unanswered categories), starts the next round,
+          // and broadcasts all events to connected clients.
+          try {
+            await hubConnection.roundTimeUp(code!);
+          } catch (e) {
+            console.error('Failed to advance round after time up', e);
+            toast.error('Failed to advance round. Please try again.');
+          }
         });
 
         hubConnection.onAnswersRevealed((data: { roundCategories: CategoryDto[]; scoredAnswers: ScoredAnswerDto[] }) => {
